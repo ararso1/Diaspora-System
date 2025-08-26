@@ -5,7 +5,7 @@ from .api import (
     OfficeViewSet, DiasporaViewSet, PurposeViewSet,
     CaseViewSet, ReferralViewSet, ReportsViewSet
 )
-from .views import user_login, user_register
+from .views import user_login
 
 router = DefaultRouter()
 router.register(r"offices", OfficeViewSet, basename="offices")
@@ -17,7 +17,6 @@ router.register(r"reports", ReportsViewSet, basename="reports")  # exposes custo
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("login", user_login, name="user_login"),
-    path("register", user_register, name="user_register"),
+    path("login", user_login, name="user_login"),  
 ]
 

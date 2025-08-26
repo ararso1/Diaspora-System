@@ -103,12 +103,6 @@ DATABASES = {
 }
 
 
-# Authentication backends
-AUTHENTICATION_BACKENDS = [
-    'diaspora.backends.EmailOrUsernameModelBackend',
-    'django.contrib.auth.backends.ModelBackend',
-]
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 

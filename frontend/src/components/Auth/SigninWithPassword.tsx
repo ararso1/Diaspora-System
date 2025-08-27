@@ -52,7 +52,7 @@ export default function SigninWithPassword() {
   return (
     <form onSubmit={handleSubmit}>
       <InputGroup
-        type="email"
+        type="text"
         label="Email"
         className="mb-4 [&_input]:py-[15px]"
         placeholder="Enter your email"

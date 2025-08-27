@@ -17,6 +17,6 @@ router.register(r"reports", ReportsViewSet, basename="reports")  # exposes custo
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("login", user_login, name="user_login"),  
+    path("login/", user_login, name="user_login"),  
 ]
 

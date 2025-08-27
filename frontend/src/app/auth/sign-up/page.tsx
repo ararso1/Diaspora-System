@@ -2,22 +2,22 @@
 
 import PublicNavbar from "@/components/PublicNavbar";
 import { useState } from "react";
+import { registerUser } from "@/utils/api";
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [form, setForm] = useState({
+    username: "",
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
-    nationalId: "",
-    address: "",
     password: "",
     confirmPassword: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -28,45 +28,37 @@ export default function SignUpPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    if (!API_URL) {
-      setError("NEXT_PUBLIC_API_URL is not configured");
+    
+    if (!form.username || !form.firstName || !form.lastName || !form.email || !form.password || !form.confirmPassword) {
+      setError("All fields are required");
       return;
     }
-    if (!form.firstName || !form.lastName || !form.phone) {
-      setError("First name, last name and phone are required");
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
 
     try {
       setSubmitting(true);
-      const usernameBase = form.email || form.phone || `${form.firstName.toLowerCase()}_${Date.now()}`;
-      const payload: Record<string, any> = {
-        username: usernameBase,
+      const response = await registerUser({
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        password2: form.confirmPassword,
         first_name: form.firstName,
         last_name: form.lastName,
-        phone_number: form.phone,
-        password: form.password,
-        confirm_password: form.confirmPassword,
-        status: "active",
-        groups: ["Citizen"],
-      };
-      if (form.email) payload.email = form.email;
-      if (form.nationalId) payload.national_id = form.nationalId;
-
-      const res = await fetch(`${API_URL}/users/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Signup failed (${res.status})`);
-      }
 
-      setSuccess("Account created. You can now sign in.");
-      setForm({ firstName: "", lastName: "", email: "", phone: "", nationalId: "", address: "", password: "", confirmPassword: "" });
+      setSuccess("Account created successfully! You can now sign in.");
+      setForm({ username: "", firstName: "", lastName: "", email: "", password: "", confirmPassword: "" });
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.push("/auth/sign-in");
+      }, 2000);
     } catch (err: any) {
-      setError(err?.message || "Signup failed");
+      setError(err?.response?.data?.detail || err?.message || "Registration failed");
     } finally {
       setSubmitting(false);
     }
@@ -78,6 +70,10 @@ export default function SignUpPage() {
       <main className="mx-auto max-w-2xl px-4 py-10">
         <h1 className="mb-6 text-2xl font-bold">Sign Up</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Username *</label>
+            <input name="username" value={form.username} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">First Name *</label>
@@ -88,25 +84,9 @@ export default function SignUpPage() {
               <input name="lastName" value={form.lastName} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Email (optional)</label>
-              <input type="email" name="email" value={form.email} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Phone *</label>
-              <input name="phone" value={form.phone} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">National ID (optional)</label>
-              <input name="nationalId" value={form.nationalId} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Address</label>
-              <input name="address" value={form.address} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
-            </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Email *</label>
+            <input type="email" name="email" value={form.email} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Password *</label>

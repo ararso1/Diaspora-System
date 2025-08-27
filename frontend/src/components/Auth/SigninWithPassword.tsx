@@ -1,5 +1,5 @@
 "use client";
-import { EmailIcon, PasswordIcon } from "@/assets/icons";
+import { UserIcon, PasswordIcon } from "@/assets/icons";
 import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup/index";
@@ -10,7 +10,7 @@ import { defaultRouteForRole } from "@/lib/role";
 
 export default function SigninWithPassword() {
   const [data, setData] = useState({
-    email: process.env.NEXT_PUBLIC_DEMO_USER_MAIL || "",
+    identifier: process.env.NEXT_PUBLIC_DEMO_USER_MAIL || "",
     password: process.env.NEXT_PUBLIC_DEMO_USER_PASS || "",
     remember: false,
   });
@@ -32,20 +32,20 @@ export default function SigninWithPassword() {
     setError("");
 
     try {
-      const response = await loginUser(data.email, data.password); // call Django API
+      const response = await loginUser(data.identifier, data.password); // call Django API
       localStorage.setItem("token", response.access); // save JWT
       if (response.role) {
         localStorage.setItem("role", response.role);
       }
-      if (response.user_id) {
-        localStorage.setItem("user_id", String(response.user_id));
+      if (response.user && response.user.id) {
+        localStorage.setItem("user_id", String(response.user.id));
       }
       setLoading(false);
       const role = (response.role || "").toString();
       router.push(defaultRouteForRole(role));
     } catch (err: any) {
       setLoading(false);
-      setError("Invalid email or password");
+      setError("Invalid username/email or password");
     }
   };
 
@@ -55,12 +55,15 @@ export default function SigninWithPassword() {
         type="text"
         label="Email"
         className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your email"
-        name="email"
+        placeholder="Enter your username or email"
+        name="identifier"
         handleChange={handleChange}
-        value={data.email}
-        icon={<EmailIcon />}
+        value={data.identifier}
+        icon={<UserIcon />}
       />
+      <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+        You can sign in using either your username or email address
+      </p>
 
       <InputGroup
         type="password"

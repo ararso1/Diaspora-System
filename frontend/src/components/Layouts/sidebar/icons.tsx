@@ -39,7 +39,7 @@ export function HomeIcon(props: PropsType) {
   );
 }
 
-export function User(props: PropsType) {
+export function UserAvatar(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -49,10 +49,9 @@ export function User(props: PropsType) {
       fill="none"
       {...props}
     >
+      <circle cx="12" cy="7" r="4" fill="currentColor" />
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M2.25 7A.75.75 0 013 6.25h10a.75.75 0 010 1.5H3A.75.75 0 012.25 7zm14.25-.75a.75.75 0 01.684.442l4.5 10a.75.75 0 11-1.368.616l-1.437-3.194H14.12l-1.437 3.194a.75.75 0 11-1.368-.616l4.5-10a.75.75 0 01.684-.442zm-1.704 6.364h3.408L16.5 8.828l-1.704 3.786zM2.25 12a.75.75 0 01.75-.75h7a.75.75 0 010 1.5H3a.75.75 0 01-.75-.75zm0 5a.75.75 0 01.75-.75h5a.75.75 0 010 1.5H3a.75.75 0 01-.75-.75z"
+        d="M4 20c0-4 4-7 8-7s8 3 8 7v1H4v-1z"
         fill="currentColor"
       />
     </svg>
@@ -83,7 +82,7 @@ export function Calendar(props: PropsType) {
   );
 }
 
-export function Alphabet(props: PropsType) {
+export function Cases(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -93,64 +92,141 @@ export function Alphabet(props: PropsType) {
       fill="none"
       {...props}
     >
+      {/* Folder/Case outline */}
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M2.25 7A.75.75 0 013 6.25h10a.75.75 0 010 1.5H3A.75.75 0 012.25 7zm14.25-.75a.75.75 0 01.684.442l4.5 10a.75.75 0 11-1.368.616l-1.437-3.194H14.12l-1.437 3.194a.75.75 0 11-1.368-.616l4.5-10a.75.75 0 01.684-.442zm-1.704 6.364h3.408L16.5 8.828l-1.704 3.786zM2.25 12a.75.75 0 01.75-.75h7a.75.75 0 010 1.5H3a.75.75 0 01-.75-.75zm0 5a.75.75 0 01.75-.75h5a.75.75 0 010 1.5H3a.75.75 0 01-.75-.75z"
-        fill="currentColor"
+        d="M4 5a2 2 0 0 0-2 2v10.5A2.5 2.5 0 0 0 4.5 20h15a2.5 2.5 0 0 0 2.5-2.5V7a2 2 0 0 0-2-2h-7l-2-2H4z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        fill="none"
+      />
+
+      {/* Document lines inside case */}
+      <path
+        d="M7.5 11h9M7.5 14h9M7.5 17h6"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
       />
     </svg>
   );
 }
 
-export function Table(props: PropsType) {
+export function ReportsAvatar(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width={24}
       height={24}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="none"
       {...props}
     >
+      {/* Document outline */}
+      <rect
+        x={4}
+        y={3}
+        width={16}
+        height={18}
+        rx={2}
+        stroke="currentColor"
+        strokeWidth={1.5}
+        fill="none"
+      />
+      {/* Chart bars */}
+      <path d="M9 15v-3M13 15v-6M17 15v-4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+
+export function AnnouncementsAvatar(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      {...props}
+    >
+      {/* Megaphone shape */}
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M18.29 4.89c-1.028-.138-2.383-.14-4.29-.14h-4c-1.907 0-3.261.002-4.29.14-1.005.135-1.585.389-2.008.812-.423.423-.677 1.003-.812 2.009-.138 1.028-.14 2.382-.14 4.289 0 1.907.002 3.261.14 4.29.135 1.005.389 1.585.812 2.008.423.423 1.003.677 2.009.812 1.028.138 2.382.14 4.289.14h4c1.907 0 3.262-.002 4.29-.14 1.005-.135 1.585-.389 2.008-.812.423-.423.677-1.003.812-2.009.138-1.028.14-2.382.14-4.289 0-1.907-.002-3.261-.14-4.29-.135-1.005-.389-1.585-.812-2.008-.423-.423-1.003-.677-2.009-.812zm.199-1.487c1.172.158 2.121.49 2.87 1.238.748.749 1.08 1.698 1.238 2.87.153 1.14.153 2.595.153 4.433v.112c0 1.838 0 3.294-.153 4.433-.158 1.172-.49 2.121-1.238 2.87-.749.748-1.698 1.08-2.87 1.238-1.14.153-2.595.153-4.433.153H9.944c-1.838 0-3.294 0-4.433-.153-1.172-.158-2.121-.49-2.87-1.238-.748-.749-1.08-1.698-1.238-2.87-.153-1.14-.153-2.595-.153-4.433v-.112c0-1.838 0-3.294.153-4.433.158-1.172.49-2.121 1.238-2.87.749-.748 1.698-1.08 2.87-1.238 1.14-.153 2.595-.153 4.433-.153h4.112c1.838 0 3.294 0 4.433.153zM8.25 17a.75.75 0 01.75-.75h6a.75.75 0 010 1.5H9a.75.75 0 01-.75-.75z"
+        d="M3 10v4a1 1 0 0 0 1 1h2l5 3v-12l-5 3H4a1 1 0 0 0-1 1z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        fill="none"
+      />
+      {/* Sound waves */}
+      <path d="M17 9a3 3 0 0 1 0 6M19 7a6 6 0 0 1 0 10" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+
+export function HelpGuidelinesAvatar(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      {...props}
+    >
+      {/* Circle outline */}
+      <circle cx={12} cy={12} r={9} stroke="currentColor" strokeWidth={1.5} />
+      {/* Question mark */}
+      <path
+        d="M9.5 9a2.5 2.5 0 1 1 4.5 1.5c0 1.5-2 2-2 3"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      {/* Dot */}
+      <circle cx={12} cy={17} r={1} fill="currentColor" />
+    </svg>
+  );
+}
+
+export function ReferralAvatar(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      {...props}
+    >
+      {/* Person 1 */}
+      <circle cx={7} cy={7} r={3} stroke="currentColor" strokeWidth={1.5} />
+      <path
+        d="M2.5 13c0-2 2-3.5 4.5-3.5S11.5 11 11.5 13v1H2.5v-1z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        fill="none"
+      />
+
+      {/* Person 2 */}
+      <circle cx={17} cy={17} r={3} stroke="currentColor" strokeWidth={1.5} />
+      <path
+        d="M12.5 23c0-2 2-3.5 4.5-3.5S21.5 21 21.5 23v.5h-9v-.5z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        fill="none"
+      />
+
+      {/* Referral arrows */}
+      <path
+        d="M10 7h4M14 7l-1.5-1.5M14 7l-1.5 1.5"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
       />
     </svg>
   );
 }
 
-export function PieChart(props: PropsType) {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M14.254 1.365c-1.096-.306-2.122.024-2.851.695-.719.66-1.153 1.646-1.153 2.7v6.695a2.295 2.295 0 002.295 2.295h6.694c1.055 0 2.042-.434 2.701-1.153.67-.729 1.001-1.755.695-2.851a12.102 12.102 0 00-8.38-8.381zM11.75 4.76c0-.652.27-1.232.668-1.597.386-.355.886-.508 1.433-.355 3.55.991 6.349 3.79 7.34 7.34.153.548 0 1.048-.355 1.434-.365.397-.945.667-1.597.667h-6.694a.795.795 0 01-.795-.795V4.761z"
-        fill="currentColor"
-      />
-      <path
-        d="M8.672 4.716a.75.75 0 00-.45-1.432C4.183 4.554 1.25 8.328 1.25 12.79c0 5.501 4.46 9.961 9.96 9.961 4.462 0 8.236-2.932 9.505-6.973a.75.75 0 10-1.43-.45 8.465 8.465 0 01-8.074 5.923 8.46 8.46 0 01-8.461-8.46 8.465 8.465 0 015.922-8.074z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-export function FourCircle(props: PropsType) {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M6.5 1.75a4.75 4.75 0 100 9.5 4.75 4.75 0 000-9.5zM3.25 6.5a3.25 3.25 0 116.5 0 3.25 3.25 0 01-6.5 0zM17.5 12.75a4.75 4.75 0 100 9.5 4.75 4.75 0 000-9.5zm-3.25 4.75a3.25 3.25 0 116.5 0 3.25 3.25 0 01-6.5 0zM12.75 6.5a4.75 4.75 0 119.5 0 4.75 4.75 0 01-9.5 0zm4.75-3.25a3.25 3.25 0 100 6.5 3.25 3.25 0 000-6.5zM6.5 12.75a4.75 4.75 0 100 9.5 4.75 4.75 0 000-9.5zM3.25 17.5a3.25 3.25 0 116.5 0 3.25 3.25 0 01-6.5 0z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
 
 export function Authentication(props: PropsType) {
   return (

@@ -28,7 +28,7 @@ def user_login(request):
             user = None
     if user is not None:
         login(request, user)
-        print(user)
+        print(user.groups.first().name)
         # Generate JWT token
         refresh = RefreshToken.for_user(user)   
         # Create a custom response with the token

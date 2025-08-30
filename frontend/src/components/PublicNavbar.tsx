@@ -110,21 +110,21 @@ export default function PublicNavbar() {
               <LanguageSwitcher variant="buttons" className="mb-3" />
             </div>
             <div className="flex gap-2">
-                              <Link
+              <Link
                   href="/auth/sign-in"
                   className="flex-1 rounded-md border px-4 py-2 text-center font-semibold"
                   style={{ borderColor: ACCENT, color: ACCENT }}
                   onClick={() => setOpen(false)}
                 >
-                  {translate('auth.signIn', 'Sign In')}
-                </Link>
+                  Sign In
+              </Link>
               <Link
-                href="/auth/sign-in"
+                href="/auth/sign-up"
                 className="flex-1 rounded-md px-4 py-2 text-center font-semibold text-white"
                 style={{ background: ACCENT }}
                 onClick={() => setOpen(false)}
               >
-                Sign In
+                Sign Up
               </Link>
             </div>
           </div>

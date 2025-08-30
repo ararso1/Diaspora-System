@@ -68,7 +68,7 @@ export function Header() {
         <h1 className="mb-0.5 text-heading-5 font-bold text-dark dark:text-white">
           {roleTitle} Dashboard
         </h1>
-        <p className="font-medium">Role: {roleTitle}</p>
+        {/* <p className="font-medium">Role: {roleTitle}</p> */}
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">

@@ -4,20 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-const ACCENT = "#5750f1";
+const ACCENT = "#0ea371"; // Harari-inspired green
 
 export default function PublicNavbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const linkActive = (href: string) =>
-    pathname === href ? "text-[#5750f1]" : "text-dark-2 dark:text-dark-6";
+    pathname === href ? "text-[var(--accent)]" : "text-dark-2 dark:text-dark-6";
 
   const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`relative px-2 py-1 font-medium hover:text-[#5750f1] ${linkActive(href)}`}
+      className={`relative px-2 py-1 font-medium hover:text-[var(--accent)] ${linkActive(href)}`}
       onClick={() => setOpen(false)}
+      style={{ ["--accent" as any]: ACCENT }}
     >
       {children}
       {pathname === href && (
@@ -35,13 +36,13 @@ export default function PublicNavbar() {
         {/* Brand */}
         <Link href="/" className="group inline-flex items-center gap-2">
           <span
-            className="grid size-8 place-items-center rounded-md text-white"
+            className="grid size-8 place-items-center rounded-md text-white font-bold"
             style={{ background: ACCENT }}
           >
-            CA
+            HD
           </span>
           <span className="text-lg font-bold text-dark dark:text-white">
-            Complaints&nbsp;&amp;&nbsp;Appeals
+            Harari Region Diaspora
           </span>
         </Link>
 
@@ -49,25 +50,26 @@ export default function PublicNavbar() {
         <ul className="hidden items-center gap-6 md:flex">
           <li><NavLink href="/">Home</NavLink></li>
           <li><NavLink href="/about">About</NavLink></li>
-          <li><NavLink href="/services">Services</NavLink></li>
+          <li><NavLink href="/services">Programs</NavLink></li>
+          <li><NavLink href="/services">Offices</NavLink></li>
           <li><NavLink href="/contact">Contact</NavLink></li>
         </ul>
 
-        {/* Auth buttons (desktop) */}
+        {/* Auth / CTAs (desktop) */}
         <div className="hidden items-center gap-3 md:flex">
           <Link
-            href="/auth/sign-in"
+            href="/auth/sign-up"
             className="rounded-md border px-4 py-2 font-semibold hover:opacity-90"
             style={{ borderColor: ACCENT, color: ACCENT }}
           >
-            Sign In
+            Register as Diaspora
           </Link>
           <Link
-            href="/auth/sign-up"
+            href="/auth/sign-in"
             className="rounded-md px-4 py-2 font-semibold text-white hover:opacity-90"
             style={{ background: ACCENT }}
           >
-            Sign Up
+            Sign In
           </Link>
         </div>
 
@@ -76,7 +78,7 @@ export default function PublicNavbar() {
           className="inline-flex size-10 items-center justify-center rounded-md border md:hidden dark:border-dark-3"
           onClick={() => setOpen((s) => !s)}
           aria-label="Toggle navigation"
-          style={{ borderColor: "rgba(87,80,241,0.25)" }}
+          style={{ borderColor: "rgba(14,163,113,0.25)" }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" />
@@ -90,24 +92,25 @@ export default function PublicNavbar() {
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
             <NavLink href="/">Home</NavLink>
             <NavLink href="/about">About</NavLink>
-            <NavLink href="/services">Services</NavLink>
+            <NavLink href="/programs">Programs</NavLink>
+            <NavLink href="/offices">Offices</NavLink>
             <NavLink href="/contact">Contact</NavLink>
             <div className="mt-2 flex gap-2">
               <Link
-                href="/auth/sign-in"
+                href="/auth/sign-up"
                 className="flex-1 rounded-md border px-4 py-2 text-center font-semibold"
                 style={{ borderColor: ACCENT, color: ACCENT }}
                 onClick={() => setOpen(false)}
               >
-                Sign In
+                Register
               </Link>
               <Link
-                href="/auth/sign-up"
+                href="/auth/sign-in"
                 className="flex-1 rounded-md px-4 py-2 text-center font-semibold text-white"
                 style={{ background: ACCENT }}
                 onClick={() => setOpen(false)}
               >
-                Sign Up
+                Sign In
               </Link>
             </div>
           </div>

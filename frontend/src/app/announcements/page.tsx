@@ -11,45 +11,34 @@ import {
 } from "@/components/ui/table";
 import { AnimatedModal } from "@/components/ui/animated-modal";
 import { SuccessModal } from "@/components/ui/success-modal";
-import { Plus, Settings, RefreshCcw } from "lucide-react";
+import { Plus, Settings, RefreshCcw, ToggleLeft, ToggleRight } from "lucide-react";
 
-/* ===================== Types (aligned with your model) ===================== */
-
-type ApiOffice = { id: number | string; name: string };
-type ApiGroup  = { id: number | string; name: string };
+/* ===================== Types aligned to your model ===================== */
+type ApiUser = { id: number | string; first_name?: string; last_name?: string; email?: string; username?: string };
 
 type Announcement = {
   id: number | string;
   title: string;
   content: string;
-  is_active?: boolean;
-  created_at?: string | null;
-  created_by?: any;
-
-  // M2M can be ids or objects depending on serializer
-  recipients_groups?: (number | string | ApiGroup)[] | null;
-  recipients_offices?: (number | string | ApiOffice)[] | null;
+  is_active: boolean | string | number | null;
+  is_for_internal: boolean | string | number | null;
+  created_at: string;
+  updated_at: string;
+  created_by?: ApiUser | number | null;
+  updated_by?: ApiUser | number | null;
 };
 
 type CreateForm = {
   title: string;
-  content: string;                  // <- matches backend
-  audienceType: "roles" | "offices";
-  groupIds: (string | number)[];    // <- send group IDs
-  officeIds: (string | number)[];   // <- send office IDs
+  content: string;
+  is_active: boolean;
+  is_for_internal: boolean;
 };
 
-type EditForm = {
-  title: string;
-  content: string;
-  audienceType: "roles" | "offices";
-  groupIds: (string | number)[];
-  officeIds: (string | number)[];
-};
+type EditForm = CreateForm;
 
 /* ===================== Helpers ===================== */
-
-const allowedToManage = new Set(["Director", "President Office", "President"]);
+const allowedToManage = new Set(["Officer", "Director", "Administrator"]);
 
 const fetchAllPaginated = async <T,>(url: string, headers: Record<string, string>): Promise<T[]> => {
   let next: string | null = url;
@@ -72,24 +61,18 @@ const fetchAllPaginated = async <T,>(url: string, headers: Record<string, string
   return all;
 };
 
-// Turn ids/strings/objects into display names using a map (id → name)
-function toNames(
-  items: Array<string | number | { id?: string|number; name?: string }> | undefined | null,
-  map: Map<string, string>
-): string[] {
-  if (!Array.isArray(items)) return [];
-  return items.map((it) => {
-    if (typeof it === "object" && it !== null) {
-      const name = (it as any).name ?? map.get(String((it as any).id));
-      return name ?? String((it as any).id ?? "");
-    }
-    // string or number – try map; fallback to the raw value
-    return map.get(String(it)) ?? String(it);
-  });
-}
+const toBool = (v: any) => v === true || v === "true" || v === 1 || v === "1";
+
+const badge = (cls: string, text: string) => (
+  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{text}</span>
+);
+
+const INTERNAL_BADGE = "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
+const PUBLIC_BADGE   = "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+const ACTIVE_BADGE   = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300";
+const INACTIVE_BADGE = "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
 
 /* ===================== Page ===================== */
-
 export default function AnnouncementsPage() {
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -101,21 +84,6 @@ export default function AnnouncementsPage() {
 
   // Data
   const [rows, setRows] = useState<Announcement[]>([]);
-  const [offices, setOffices] = useState<ApiOffice[]>([]);
-  const [groups, setGroups] = useState<ApiGroup[]>([]); // roles/groups with id+name
-
-  // Fast lookup maps (id → name)
-  const groupMap  = useMemo(() => {
-    const m = new Map<string, string>();
-    groups.forEach(g => m.set(String(g.id), g.name));
-    return m;
-  }, [groups]);
-
-  const officeMap = useMemo(() => {
-    const m = new Map<string, string>();
-    offices.forEach(o => m.set(String(o.id), o.name));
-    return m;
-  }, [offices]);
 
   // UX
   const [loading, setLoading] = useState(false);
@@ -123,6 +91,8 @@ export default function AnnouncementsPage() {
 
   // Filters
   const [search, setSearch] = useState("");
+  const [visibility, setVisibility] = useState<"all" | "public" | "internal">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
 
   // Create
   const [openCreate, setOpenCreate] = useState(false);
@@ -131,39 +101,61 @@ export default function AnnouncementsPage() {
   const [createForm, setCreateForm] = useState<CreateForm>({
     title: "",
     content: "",
-    audienceType: "roles",
-    groupIds: [],
-    officeIds: [],
+    is_active: true,
+    is_for_internal: false,
   });
 
   // Manage (edit/delete)
   const [openManage, setOpenManage] = useState(false);
   const [selected, setSelected] = useState<Announcement | null>(null);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState<EditForm>({
     title: "",
     content: "",
-    audienceType: "roles",
-    groupIds: [],
-    officeIds: [],
+    is_active: true,
+    is_for_internal: false,
   });
+
+  // Delete confirmation
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Success
   const [successOpen, setSuccessOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
   /* ---------- Load ---------- */
-
   const loadAnnouncements = async () => {
-    if (!API_URL || !token) return;
+    if (!API_URL) return;
     try {
       setLoading(true);
       setError("");
-      const list = await fetchAllPaginated<Announcement>(`${API_URL}/announcements/`, headers);
-      list.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
-      setRows(list);
+
+      // Managers (Officer/Director/Admin) should see ALL.
+      // Try query flags if your API supports them; fall back gracefully.
+      const base = `${API_URL}/announcements/`;
+      const url = canManage
+        ? `${base}?include_inactive=1&include_internal=1`
+        : base;
+
+      let list: Announcement[] = [];
+      try {
+        list = await fetchAllPaginated<Announcement>(url, headers);
+      } catch {
+        // fallback without params if server doesn't support them
+        list = await fetchAllPaginated<Announcement>(base, headers);
+      }
+
+      // Normalize booleans to prevent incorrect badges
+      const normalized = list.map(a => ({
+        ...a,
+        is_active: toBool(a.is_active),
+        is_for_internal: toBool(a.is_for_internal),
+      })) as Announcement[];
+
+      normalized.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+      setRows(normalized);
     } catch (e: any) {
       setError(e?.message || "Failed to load announcements");
     } finally {
@@ -171,40 +163,38 @@ export default function AnnouncementsPage() {
     }
   };
 
-  const loadOptions = async () => {
-    if (!API_URL || !token) return;
-    try {
-      const [off, gr] = await Promise.all([
-        fetchAllPaginated<ApiOffice>(`${API_URL}/offices/`, headers),
-        fetchAllPaginated<ApiGroup>(`${API_URL}/groups/`, headers),
-      ]);
-      setOffices(off);
-      setGroups(gr);
-    } catch {
-      // non-fatal
-    }
-  };
-
   useEffect(() => {
     loadAnnouncements();
-    loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ---------- Filter ---------- */
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((r) =>
-      [r.title, r.content].filter(Boolean).some((v) => String(v).toLowerCase().includes(term)),
-    );
-  }, [rows, search]);
+    return rows.filter((r0) => {
+      const r = { ...r0, is_active: toBool(r0.is_active), is_for_internal: toBool(r0.is_for_internal) };
+
+      const matchSearch =
+        !term ||
+        [r.title, r.content].filter(Boolean).some((v) => String(v).toLowerCase().includes(term));
+
+      const matchVis =
+        visibility === "all" ||
+        (visibility === "internal" && r.is_for_internal === true) ||
+        (visibility === "public" && r.is_for_internal === false);
+
+      const matchActive =
+        activeFilter === "all" ||
+        (activeFilter === "active" && r.is_active === true) ||
+        (activeFilter === "inactive" && r.is_active === false);
+
+      return matchSearch && matchVis && matchActive;
+    });
+  }, [rows, search, visibility, activeFilter]);
 
   /* ---------- Create ---------- */
-
   const resetCreate = () =>
-    setCreateForm({ title: "", content: "", audienceType: "roles", groupIds: [], officeIds: [] });
+    setCreateForm({ title: "", content: "", is_active: true, is_for_internal: false });
 
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,21 +204,11 @@ export default function AnnouncementsPage() {
     if (!createForm.title.trim())   return setCreateError("Title is required.");
     if (!createForm.content.trim()) return setCreateError("Content is required.");
 
-    const usingRoles = createForm.audienceType === "roles";
-    const recipients_groups  = usingRoles ? createForm.groupIds  : [];
-    const recipients_offices = usingRoles ? []                   : createForm.officeIds;
-
-    if (usingRoles && recipients_groups.length === 0)
-      return setCreateError("Select at least one role.");
-    if (!usingRoles && recipients_offices.length === 0)
-      return setCreateError("Select at least one office.");
-
     const payload = {
       title: createForm.title.trim(),
-      content: createForm.content.trim(), // REQUIRED by backend
-      is_active: true,
-      recipients_groups,
-      recipients_offices,
+      content: createForm.content.trim(),
+      is_active: !!createForm.is_active,
+      is_for_internal: !!createForm.is_for_internal,
     };
 
     try {
@@ -238,16 +218,13 @@ export default function AnnouncementsPage() {
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Create failed: ${res.status}`);
-      }
+      if (!res.ok) throw new Error((await res.text()) || `Create failed: ${res.status}`);
       setOpenCreate(false);
       resetCreate();
       await loadAnnouncements();
       setSuccessMsg("Announcement created successfully.");
       setSuccessOpen(true);
-      setTimeout(() => setSuccessOpen(false), 3000);
+      setTimeout(() => setSuccessOpen(false), 2500);
     } catch (e: any) {
       setCreateError(e?.message || "Failed to create announcement");
     } finally {
@@ -255,31 +232,18 @@ export default function AnnouncementsPage() {
     }
   };
 
-  /* ---------- Manage (Edit/Delete) ---------- */
-
+  /* ---------- Manage ---------- */
   const openManageModal = (row: Announcement) => {
-    setSelected(row);
-    // Pre-fill edit form with IDs
-    const groupsFromRow = (row.recipients_groups || []).map((g) =>
-      typeof g === "object" ? (g as ApiGroup).id : g,
-    );
-    const officesFromRow = (row.recipients_offices || []).map((o) =>
-      typeof o === "object" ? (o as ApiOffice).id : o,
-    );
-    const audienceType: "roles" | "offices" =
-      groupsFromRow.length > 0 ? "roles" : "offices";
-
+    const norm = { ...row, is_active: toBool(row.is_active), is_for_internal: toBool(row.is_for_internal) };
+    setSelected(norm);
     setEditForm({
-      title: row.title || "",
-      content: row.content || "",
-      audienceType,
-      groupIds: groupsFromRow as (string | number)[],
-      officeIds: officesFromRow as (string | number)[],
+      title: norm.title || "",
+      content: norm.content || "",
+      is_active: !!norm.is_active,
+      is_for_internal: !!norm.is_for_internal,
     });
-
     setEditError("");
     setSaving(false);
-    setDeleting(false);
     setOpenManage(true);
   };
 
@@ -291,12 +255,11 @@ export default function AnnouncementsPage() {
     if (!editForm.title.trim())   return setEditError("Title is required.");
     if (!editForm.content.trim()) return setEditError("Content is required.");
 
-    const usingRoles = editForm.audienceType === "roles";
     const payload = {
       title: editForm.title.trim(),
       content: editForm.content.trim(),
-      recipients_groups:  usingRoles ? editForm.groupIds  : [],
-      recipients_offices: usingRoles ? []                  : editForm.officeIds,
+      is_active: !!editForm.is_active,
+      is_for_internal: !!editForm.is_for_internal,
     };
 
     try {
@@ -306,15 +269,12 @@ export default function AnnouncementsPage() {
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Update failed: ${res.status}`);
-      }
+      if (!res.ok) throw new Error((await res.text()) || `Update failed: ${res.status}`);
       setOpenManage(false);
       await loadAnnouncements();
       setSuccessMsg("Announcement updated successfully.");
       setSuccessOpen(true);
-      setTimeout(() => setSuccessOpen(false), 3000);
+      setTimeout(() => setSuccessOpen(false), 2500);
     } catch (e: any) {
       setEditError(e?.message || "Failed to update announcement");
     } finally {
@@ -322,25 +282,27 @@ export default function AnnouncementsPage() {
     }
   };
 
+  // Delete flow (only inside Manage, with confirmation)
+  const confirmDelete = () => setConfirmDeleteOpen(true);
+  const cancelDelete  = () => setConfirmDeleteOpen(false);
+
   const handleDelete = async () => {
     if (!API_URL || !selected) return;
-    if (!token) return setEditError("You are not authenticated.");
-    if (!canManage) return setEditError("You do not have permission.");
+    if (!token) { setEditError("You are not authenticated."); return; }
+    if (!canManage) { setEditError("You do not have permission."); return; }
     try {
       setDeleting(true);
       const res = await fetch(`${API_URL}/announcements/${selected.id}/`, {
         method: "DELETE",
         headers,
       });
-      if (!res.ok && res.status !== 204) {
-        const msg = await res.text();
-        throw new Error(msg || `Delete failed: ${res.status}`);
-      }
+      if (!res.ok && res.status !== 204) throw new Error((await res.text()) || `Delete failed: ${res.status}`);
+      setConfirmDeleteOpen(false);
       setOpenManage(false);
       await loadAnnouncements();
       setSuccessMsg("Announcement deleted successfully.");
       setSuccessOpen(true);
-      setTimeout(() => setSuccessOpen(false), 3000);
+      setTimeout(() => setSuccessOpen(false), 2500);
     } catch (e: any) {
       setEditError(e?.message || "Failed to delete announcement");
     } finally {
@@ -348,22 +310,60 @@ export default function AnnouncementsPage() {
     }
   };
 
-  /* ---------- Render ---------- */
+  /* ---------- Quick Toggle Active from table ---------- */
+  const toggleActive = async (row: Announcement) => {
+    if (!API_URL || !token || !canManage) return;
+    try {
+      const res = await fetch(`${API_URL}/announcements/${row.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ is_active: !toBool(row.is_active) }),
+      });
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id ? { ...r, is_active: !toBool(r.is_active) } : r
+        )
+      );
+    } catch {
+      // optional toast
+    }
+  };
 
+  /* ---------- Render ---------- */
   return (
     <>
       <Breadcrumb pageName="Announcements" />
 
-      <div className={cn("rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card")}>
+      <div className={cn("rounded-[14px] bg-white p-6 shadow-lg ring-1 ring-black/5 dark:bg-gray-dark")}>
         {/* Top bar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
             <Input
               placeholder="Search title or content…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[300px]"
+              className="w-[280px]"
             />
+            <select
+              className="rounded border border-gray-300 p-2 text-sm dark:border-dark-3 dark:bg-dark-2"
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as any)}
+            >
+              <option value="all">All visibility</option>
+              <option value="public">Public</option>
+              <option value="internal">Internal</option>
+            </select>
+            <select
+              className="rounded border border-gray-300 p-2 text-sm dark:border-dark-3 dark:bg-dark-2"
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value as any)}
+            >
+              <option value="all">All status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
             <Button variant="ghost" onClick={loadAnnouncements} title="Refresh">
               <RefreshCcw className="h-4 w-4" />
             </Button>
@@ -379,7 +379,7 @@ export default function AnnouncementsPage() {
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add New
+              Add Announcement
             </Button>
           )}
         </div>
@@ -388,16 +388,17 @@ export default function AnnouncementsPage() {
         <Table>
           <TableHeader>
             <TableRow className="[&>th]:text-center">
-              <TableHead className="!text-left">Title</TableHead>
-              <TableHead>Audience</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="!text-left">Title & Content</TableHead>
+              <TableHead>Visibility</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
               {canManage && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={canManage ? 4 : 3} className="py-4 text-center text-gray-500 dark:text-gray-300">
+                <TableCell colSpan={canManage ? 5 : 4} className="py-4 text-center text-gray-500 dark:text-gray-300">
                   Loading…
                 </TableCell>
               </TableRow>
@@ -405,7 +406,7 @@ export default function AnnouncementsPage() {
 
             {!loading && !!error && (
               <TableRow>
-                <TableCell colSpan={canManage ? 4 : 3} className="py-4 text-center text-red-500">
+                <TableCell colSpan={canManage ? 5 : 4} className="py-4 text-center text-red-500">
                   {error}
                 </TableCell>
               </TableRow>
@@ -413,21 +414,22 @@ export default function AnnouncementsPage() {
 
             {!loading && !error && filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canManage ? 4 : 3} className="py-4 text-center text-gray-500 dark:text-gray-300">
+                <TableCell colSpan={canManage ? 5 : 4} className="py-4 text-center text-gray-500 dark:text-gray-300">
                   No announcements found
                 </TableCell>
               </TableRow>
             )}
 
             {!loading && !error && filtered.map((a) => {
-              // Convert whatever the API returned (ids/objects/strings) to *names*
-              const roleNames   = toNames(a.recipients_groups   as any, groupMap);
-              const officeNames = toNames(a.recipients_offices  as any, officeMap);
+              const isActive = toBool(a.is_active);
+              const isInternal = toBool(a.is_for_internal);
 
-              const audienceStr =
-                roleNames.length   > 0 ? `Roles: ${roleNames.join(", ")}`
-              : officeNames.length > 0 ? `Offices: ${officeNames.join(", ")}`
-              : "—";
+              const creator =
+                typeof a.created_by === "object" && a.created_by
+                  ? ((a.created_by.first_name || a.created_by.last_name)
+                      ? `${a.created_by.first_name ?? ""} ${a.created_by.last_name ?? ""}`.trim()
+                      : a.created_by.email || a.created_by.username || "—")
+                  : "—";
 
               return (
                 <TableRow key={String(a.id)} className="text-center text-base font-medium text-dark dark:text-white">
@@ -439,20 +441,41 @@ export default function AnnouncementsPage() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{audienceStr}</TableCell>
-                  <TableCell className="text-sm">{a.created_at ? String(a.created_at).slice(0, 10) : "—"}</TableCell>
+                  <TableCell>
+                    {isInternal
+                      ? badge(INTERNAL_BADGE, "Internal")
+                      : badge(PUBLIC_BADGE, "Public")}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-2">
+                      {isActive
+                        ? badge(ACTIVE_BADGE, "Active")
+                        : badge(INACTIVE_BADGE, "Inactive")}
+                      {canManage && (
+                        <Button variant="ghost" size="icon" onClick={() => toggleActive(a)} title="Toggle active">
+                          {isActive ? <ToggleRight className="h-4 w-4 text-indigo-600" /> : <ToggleLeft className="h-4 w-4 text-slate-500" />}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div>{a.created_at ? String(a.created_at).slice(0, 10) : "—"}</div>
+                    <div className="text-xs text-gray-500 dark:text-dark-6">{creator}</div>
+                  </TableCell>
                   {canManage && (
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mx-auto flex items-center gap-2"
-                        onClick={() => openManageModal(a)}
-                        title="Manage"
-                      >
-                        <Settings className="h-4 w-4 text-blue-600" />
-                        Manage
-                      </Button>
+                      <div className="flex items-center justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mx-auto flex items-center gap-2"
+                          onClick={() => openManageModal(a)}
+                          title="Manage"
+                        >
+                          <Settings className="h-4 w-4 text-blue-600" />
+                          Manage
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -481,92 +504,30 @@ export default function AnnouncementsPage() {
             />
             <textarea
               className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
-              rows={5}
+              rows={6}
               placeholder="Content *"
               value={createForm.content}
               onChange={(e) => setCreateForm((s) => ({ ...s, content: e.target.value }))}
               required
             />
-
-            {/* Audience selector */}
-            <div className="flex gap-3">
+            <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  type="radio"
-                  name="audienceType"
-                  checked={createForm.audienceType === "roles"}
-                  onChange={() => setCreateForm((s) => ({ ...s, audienceType: "roles", officeIds: [] }))}
+                  type="checkbox"
+                  checked={createForm.is_for_internal}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, is_for_internal: e.target.checked }))}
                 />
-                Roles
+                Internal (visible to staff only)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  type="radio"
-                  name="audienceType"
-                  checked={createForm.audienceType === "offices"}
-                  onChange={() => setCreateForm((s) => ({ ...s, audienceType: "offices", groupIds: [] }))}
+                  type="checkbox"
+                  checked={createForm.is_active}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, is_active: e.target.checked }))}
                 />
-                Offices
+                Active
               </label>
             </div>
-
-            {createForm.audienceType === "roles" ? (
-              <div>
-                <div className="mb-1 text-sm font-medium">Select Roles</div>
-                <div className="max-h-40 overflow-auto rounded border p-2 dark:border-dark-3">
-                  {groups.length === 0 ? (
-                    <div className="text-sm text-gray-500">No roles found.</div>
-                  ) : (
-                    groups.map((g) => (
-                      <label key={String(g.id)} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={createForm.groupIds.map(String).includes(String(g.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setCreateForm((s) => ({
-                              ...s,
-                              groupIds: checked
-                                ? [...s.groupIds, g.id]
-                                : s.groupIds.filter((x) => String(x) !== String(g.id)),
-                            }));
-                          }}
-                        />
-                        {g.name}
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="mb-1 text-sm font-medium">Select Offices</div>
-                <div className="max-h-40 overflow-auto rounded border p-2 dark:border-dark-3">
-                  {offices.length === 0 ? (
-                    <div className="text-sm text-gray-500">No offices found.</div>
-                  ) : (
-                    offices.map((o) => (
-                      <label key={String(o.id)} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={createForm.officeIds.map(String).includes(String(o.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setCreateForm((s) => ({
-                              ...s,
-                              officeIds: checked
-                                ? [...s.officeIds, o.id]
-                                : s.officeIds.filter((x) => String(x) !== String(o.id)),
-                            }));
-                          }}
-                        />
-                        {o.name}
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
 
             {createError && <div className="text-sm text-red-500">{createError}</div>}
 
@@ -581,7 +542,7 @@ export default function AnnouncementsPage() {
         )}
       </AnimatedModal>
 
-      {/* Manage Modal */}
+      {/* Manage Modal (edit + delete) */}
       <AnimatedModal
         open={openManage}
         onClose={() => setOpenManage(false)}
@@ -601,122 +562,31 @@ export default function AnnouncementsPage() {
               required
             />
             <textarea
-              className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
-              rows={5}
+              className="w-full rounded border border-gray-300 p-2 dark:border-dark-2"
+              rows={6}
               placeholder="Content *"
               value={editForm.content}
               onChange={(e) => setEditForm((s) => ({ ...s, content: e.target.value }))}
               required
             />
-
-            {/* Audience toggle */}
-            <div className="flex gap-3">
+            <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  type="radio"
-                  name="editAudienceType"
-                  checked={editForm.audienceType === "roles"}
-                  onChange={() => setEditForm((s) => ({ ...s, audienceType: "roles", officeIds: [] }))}
+                  type="checkbox"
+                  checked={editForm.is_for_internal}
+                  onChange={(e) => setEditForm((s) => ({ ...s, is_for_internal: e.target.checked }))}
                 />
-                Roles
+                Internal (staff only)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  type="radio"
-                  name="editAudienceType"
-                  checked={editForm.audienceType === "offices"}
-                  onChange={() => setEditForm((s) => ({ ...s, audienceType: "offices", groupIds: [] }))}
+                  type="checkbox"
+                  checked={editForm.is_active}
+                  onChange={(e) => setEditForm((s) => ({ ...s, is_active: e.target.checked }))}
                 />
-                Offices
+                Active
               </label>
             </div>
-
-            {/* Show the current audience as names (readable) */}
-            <div className="rounded border p-3 text-xs dark:border-dark-3">
-              <div className="font-medium mb-1">Current Audience</div>
-              <div className="space-y-1">
-                {editForm.audienceType === "roles" ? (
-                  <div>
-                    Roles:&nbsp;
-                    {toNames(
-                      (selected.recipients_groups || []).map((g) =>
-                        typeof g === "object" ? (g as ApiGroup).id : g
-                      ),
-                      groupMap
-                    ).join(", ") || "—"}
-                  </div>
-                ) : (
-                  <div>
-                    Offices:&nbsp;
-                    {toNames(
-                      (selected.recipients_offices || []).map((o) =>
-                        typeof o === "object" ? (o as ApiOffice).id : o
-                      ),
-                      officeMap
-                    ).join(", ") || "—"}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Editable audience pickers */}
-            {editForm.audienceType === "roles" ? (
-              <div>
-                <div className="mb-1 text-sm font-medium">Select Roles</div>
-                <div className="max-h-40 overflow-auto rounded border p-2 dark:border-dark-3">
-                  {groups.length === 0 ? (
-                    <div className="text-sm text-gray-500">No roles found.</div>
-                  ) : (
-                    groups.map((g) => (
-                      <label key={String(g.id)} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editForm.groupIds.map(String).includes(String(g.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setEditForm((s) => ({
-                              ...s,
-                              groupIds: checked
-                                ? [...s.groupIds, g.id]
-                                : s.groupIds.filter((x) => String(x) !== String(g.id)),
-                            }));
-                          }}
-                        />
-                        {g.name}
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="mb-1 text-sm font-medium">Select Offices</div>
-                <div className="max-h-40 overflow-auto rounded border p-2 dark:border-dark-3">
-                  {offices.length === 0 ? (
-                    <div className="text-sm text-gray-500">No offices found.</div>
-                  ) : (
-                    offices.map((o) => (
-                      <label key={String(o.id)} className="flex items-center gap-2 py-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editForm.officeIds.map(String).includes(String(o.id))}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setEditForm((s) => ({
-                              ...s,
-                              officeIds: checked
-                                ? [...s.officeIds, o.id]
-                                : s.officeIds.filter((x) => String(x) !== String(o.id)),
-                            }));
-                          }}
-                        />
-                        {o.name}
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
 
             {editError && <div className="text-sm text-red-500">{editError}</div>}
 
@@ -733,10 +603,9 @@ export default function AnnouncementsPage() {
                 <Button
                   type="button"
                   className="bg-red-600 text-white hover:bg-red-700"
-                  onClick={handleDelete}
-                  disabled={deleting}
+                  onClick={confirmDelete}
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  Delete
                 </Button>
               </div>
 
@@ -748,13 +617,34 @@ export default function AnnouncementsPage() {
         )}
       </AnimatedModal>
 
+      {/* Delete confirmation modal */}
+      <AnimatedModal
+        open={confirmDeleteOpen}
+        onClose={cancelDelete}
+        title="Confirm Deletion"
+        maxWidthClassName="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm">
+            Are you sure you want to <span className="font-semibold">delete</span> this announcement?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={cancelDelete}>Cancel</Button>
+            <Button className="bg-red-600 text-white hover:bg-red-700" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting…" : "Yes, Delete"}
+            </Button>
+          </div>
+        </div>
+      </AnimatedModal>
+
       {/* Success modal */}
       <SuccessModal
         open={successOpen}
         onClose={() => setSuccessOpen(false)}
         title="Success"
         message={successMsg}
-        autoCloseMs={3000}
+        autoCloseMs={2500}
       />
     </>
   );

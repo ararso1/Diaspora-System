@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .api import *
-from .views import user_login
+from .views import *
 
 router = DefaultRouter()
 router.register(r"offices", OfficeViewSet, basename="offices")
@@ -16,5 +16,6 @@ router.register(r'announcements', AnnouncementViewSet, basename='announcement')
 urlpatterns = [
     path("", include(router.urls)),
     path("login/", user_login, name="user_login"),  
+    path("public/register/", PublicRegisterView.as_view(), name="public-register"),
 ]
 

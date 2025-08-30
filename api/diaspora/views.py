@@ -5,7 +5,55 @@ from rest_framework import status
 from django.contrib.auth import authenticate, login 
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-# Create your views here.
+from rest_framework.views import APIView
+from rest_framework import status, permissions
+from rest_framework.throttling import AnonRateThrottle
+
+from .serializers import DiasporaWriteSerializer, DiasporaSerializer
+from .models import Diaspora
+
+class PublicRegisterView(APIView):
+    """
+    Public registration for Diaspora users.
+    - No auth required
+    - Validates password confirmation if provided
+    - Creates Django User (+ puts in 'Diaspora' group) and Diaspora in one shot
+    - Returns Diaspora read serializer (includes 'user' slim fields)
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []            # avoid SessionAuthentication/CSRF on API calls
+    throttle_classes = [AnonRateThrottle]  # optional: rate limit anonymous hits
+
+    def post(self, request):
+        data = request.data or {}
+
+        # Optional: enforce password confirmation at transport layer
+        user_payload = (data.get("user") or {})
+        pwd = user_payload.get("password") or ""
+        confirm = data.get("confirm_password") or user_payload.get("confirm_password") or ""
+        if confirm and pwd != confirm:
+            return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Optional: basic email uniqueness guard (User.email not unique by default)
+        email = (user_payload.get("email") or "").strip().lower()
+        if not email:
+            return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({"detail": "An account with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Use your existing write serializer to create both User + Diaspora
+        ser = DiasporaWriteSerializer(data=data, context={"request": request})
+        if not ser.is_valid():
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        diaspora: Diaspora = ser.save()  # creates User, adds to Diaspora group, creates Diaspora
+
+        # Return your standard read shape
+        out = DiasporaSerializer(diaspora, context={"request": request}).data
+
+        return Response(out, status=status.HTTP_201_CREATED)
+
+
 @api_view(['POST'])
 def user_login(request):
     if request.method != "POST":

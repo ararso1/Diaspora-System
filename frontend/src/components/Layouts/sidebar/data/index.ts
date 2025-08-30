@@ -9,7 +9,6 @@ export const NAV_DATA = [
         title: "Dashboard",
         icon: Icons.HomeIcon,
         allowedRoles: [
-          "Diaspora",
           "Officer",
         ],
         items: [
@@ -23,13 +22,16 @@ export const NAV_DATA = [
         title: "Diaspora",
         icon: Icons.UserAvatar,
         allowedRoles: [
-          "Diaspora",
           "Officer",
         ],
         items: [
           {
             title: "Diasporas",
             url: "/diasporas",
+            allowedRoles: [
+              "Diaspora",
+              "Officer",
+            ],
           },
           {
             title: "Purposes",
@@ -46,6 +48,9 @@ export const NAV_DATA = [
           {
             title: "New Registration",
             url: "/diasporas/new",
+            allowedRoles: [
+              "Officer",
+            ], 
           },
         ],
       },
@@ -54,6 +59,13 @@ export const NAV_DATA = [
         url: "/reports",
         icon: Icons.ReportsAvatar,
         allowedRoles: ["Officer"],
+        items: [],
+      },
+      {
+        title: "My Dashboard",
+        url: "/diaspora",
+        icon: Icons.HomeIcon,
+        allowedRoles: ["Diaspora"],
         items: [],
       },
       {

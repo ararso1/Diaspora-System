@@ -8,16 +8,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /* ================== Types aligned to your backend ================== */
-type ApiDiaspora = {
+type UserSlim = {
+  id: number | string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+};
+
+type ApiDiasporaRead = {
   id: string;                    // UUID
   diaspora_id: string;
-  first_name?: string;
-  last_name?: string;
+  user?: UserSlim | null;        // from DiasporaSerializer
+  full_name?: string | null;     // read-only field in your serializer
+
   gender?: "MALE" | "FEMALE" | "OTHER" | null;
   dob?: string | null;
 
   primary_phone?: string | null;
-  email?: string | null;
   whatsapp?: string | null;
 
   country_of_residence?: string | null;
@@ -43,39 +51,27 @@ type ApiDiaspora = {
 
 type ApiPurpose = {
   id: number | string;
-  diaspora: string;
-  type:
-    | "INVESTMENT"
-    | "TOURISM"
-    | "FAMILY"
-    | "STUDY"
-    | "CHARITY_NGO"
-    | "OTHER";
+  diaspora: string; // FK to Diaspora.id (UUID)
+  type: "INVESTMENT" | "TOURISM" | "FAMILY" | "STUDY" | "CHARITY_NGO" | "OTHER";
   description?: string;
 
   sector?: string | null;
   sub_sector?: string | null;
   investment_type?: string | null;
-  estimated_capital?: number | null;
+  estimated_capital?: number | string | null;
   currency?: string | null;
   jobs_expected?: number | null;
   land_requirement?: boolean | null;
   land_size?: number | null;
   preferred_location_note?: string | null;
 
-  status:
-    | "DRAFT"
-    | "SUBMITTED"
-    | "UNDER_REVIEW"
-    | "APPROVED"
-    | "REJECTED"
-    | "ON_HOLD";
+  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "ON_HOLD";
   created_at?: string;
 };
 
 type ApiCase = {
   id: number | string;
-  diaspora: string; // or diaspora_id depending on your serializer
+  diaspora: string; // Diaspora.id (UUID)
   current_stage: "INTAKE" | "SCREENING" | "REFERRAL" | "PROCESSING" | "COMPLETED" | "CLOSED";
   overall_status: "ACTIVE" | "PAUSED" | "DONE" | "REJECTED";
   created_at?: string;
@@ -154,6 +150,7 @@ async function fetchAllPaginated<T>(url: string, headers: Record<string, string>
       all.push(...(data as any).results);
       next = (data as any).next || null;
     } else {
+      // list endpoint returned single object (unlikely) -> ignore paging
       all.push(data);
       next = null;
     }
@@ -163,7 +160,7 @@ async function fetchAllPaginated<T>(url: string, headers: Record<string, string>
 
 /* ================== Page ================== */
 export default function DiasporaViewPage() {
-  const { id } = useParams(); // diaspora uuid
+  const { id } = useParams(); // diaspora uuid (matches Diaspora.id)
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -174,7 +171,9 @@ export default function DiasporaViewPage() {
   const groups: string[] = useMemo(() => {
     try {
       const parsed = JSON.parse(groupsRaw || "[]");
-      return (Array.isArray(parsed) ? parsed : []).map((g) => (typeof g === "string" ? g : g?.name)).filter(Boolean);
+      return (Array.isArray(parsed) ? parsed : [])
+        .map((g) => (typeof g === "string" ? g : g?.name))
+        .filter(Boolean);
     } catch {
       return [];
     }
@@ -184,7 +183,7 @@ export default function DiasporaViewPage() {
   // Data
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [d, setD] = useState<ApiDiaspora | null>(null);
+  const [d, setD] = useState<ApiDiasporaRead | null>(null);
   const [purposes, setPurposes] = useState<ApiPurpose[]>([]);
   const [caseObj, setCaseObj] = useState<ApiCase | null>(null);
   const [referrals, setReferrals] = useState<ApiReferral[]>([]);
@@ -200,25 +199,42 @@ export default function DiasporaViewPage() {
         setLoading(true);
         setErr("");
 
-        // Profile
+        // 1) Profile (single object)
         const res = await fetch(`${API_URL}/diasporas/${id}/`, { headers, cache: "no-store" });
         if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`);
-        const diaspora: ApiDiaspora = await res.json();
+        const diaspora: ApiDiasporaRead = await res.json();
         setD(diaspora);
 
-        // Purposes
-        const ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
-        setPurposes(ps);
+        // 2) Purposes for THIS diaspora only
+        // Try both common query names: ?diaspora= and ?diaspora_id=
+        let purposesList: ApiPurpose[] = [];
+        try {
+          purposesList = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
+        } catch {
+          purposesList = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora_id=${id}`, headers);
+        }
+        // Ensure we only keep items truly belonging to this diaspora id
+        purposesList = purposesList.filter((p) => String(p.diaspora) === String(id));
+        setPurposes(purposesList);
 
-        // Case (OneToOne) — we try filter by diaspora
-        const cs = await fetchAllPaginated<ApiCase>(`${API_URL}/cases/?diaspora=${id}`, headers);
-        const c = cs[0] || null;
-        setCaseObj(c);
+        // 3) Case (OneToOne) — fetch by diaspora id; handle both filter names
+        let caseList: ApiCase[] = [];
+        try {
+          caseList = await fetchAllPaginated<ApiCase>(`${API_URL}/cases/?diaspora=${id}`, headers);
+        } catch {
+          caseList = await fetchAllPaginated<ApiCase>(`${API_URL}/cases/?diaspora_id=${id}`, headers);
+        }
+        // pick the (only) case for this diaspora, if any
+        const theCase = (caseList.find((c) => String(c.diaspora) === String(id)) || caseList[0]) ?? null;
+        setCaseObj(theCase);
 
-        // Referrals (if case exists)
-        if (c?.id != null) {
-          const rs = await fetchAllPaginated<ApiReferral>(`${API_URL}/referrals/?case=${c.id}`, headers);
-          setReferrals(rs);
+        // 4) Referrals for that case
+        if (theCase?.id != null) {
+          const refs = await fetchAllPaginated<ApiReferral>(
+            `${API_URL}/referrals/?case=${theCase.id}`,
+            headers
+          );
+          setReferrals(refs);
         } else {
           setReferrals([]);
         }
@@ -239,7 +255,10 @@ export default function DiasporaViewPage() {
     return (
       <div className="p-6 text-center text-red-500 space-y-4">
         <div>{err}</div>
-        <Button onClick={() => router.push("/diasporas")}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
+        <Button onClick={() => router.push("/diasporas")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
       </div>
     );
   }
@@ -247,12 +266,22 @@ export default function DiasporaViewPage() {
     return (
       <div className="p-6 text-center text-red-500 space-y-4">
         <div>Diaspora not found.</div>
-        <Button onClick={() => router.push("/diasporas")}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
+        <Button onClick={() => router.push("/diasporas")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
       </div>
     );
   }
 
-  const fullName = `${d.first_name || ""} ${d.last_name || ""}`.trim() || "—";
+  // Name/email from nested user (fallback to full_name provided by serializer)
+  const firstName = d.user?.first_name || "";
+  const lastName  = d.user?.last_name  || "";
+  const email     = d.user?.email      || "";
+  const fullName  =
+    (d.full_name && d.full_name.trim()) ||
+    `${firstName} ${lastName}`.trim() ||
+    "—";
 
   return (
     <div className="p-6 space-y-6">
@@ -288,7 +317,7 @@ export default function DiasporaViewPage() {
               <span className="font-medium flex items-center gap-2"><Calendar className="h-4 w-4" /> {fmtDate(d.dob)}</span>
 
               <span className="text-gray-500">Email</span>
-              <span className="font-medium flex items-center gap-2"><Mail className="h-4 w-4" /> {pretty(d.email)}</span>
+              <span className="font-medium flex items-center gap-2"><Mail className="h-4 w-4" /> {pretty(email)}</span>
 
               <span className="text-gray-500">Primary phone</span>
               <span className="font-medium flex items-center gap-2"><Phone className="h-4 w-4" /> {pretty(d.primary_phone)}</span>
@@ -309,7 +338,9 @@ export default function DiasporaViewPage() {
               <span className="text-gray-500">Residence</span>
               <span className="font-medium flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                {[pretty(d.country_of_residence), pretty(d.city_of_residence)].filter((x) => x !== "—").join(", ") || "—"}
+                {[pretty(d.country_of_residence), pretty(d.city_of_residence)]
+                  .filter((x) => x !== "—")
+                  .join(", ") || "—"}
               </span>
 
               <span className="text-gray-500">Arrival date</span>
@@ -325,7 +356,11 @@ export default function DiasporaViewPage() {
               <span className="font-medium">{pretty(d.address_local)}</span>
 
               <span className="text-gray-500">Emergency contact</span>
-              <span className="font-medium">{[pretty(d.emergency_contact_name), pretty(d.emergency_contact_phone)].filter((x) => x !== "—").join(" / ") || "—"}</span>
+              <span className="font-medium">
+                {[pretty(d.emergency_contact_name), pretty(d.emergency_contact_phone)]
+                  .filter((x) => x !== "—")
+                  .join(" / ") || "—"}
+              </span>
 
               <span className="text-gray-500">Passport No.</span>
               <span className="font-medium">{pretty(d.passport_no)}</span>
@@ -337,17 +372,12 @@ export default function DiasporaViewPage() {
         </CardContent>
       </Card>
 
-      {/* Purposes */}
+      {/* Purposes — ONLY for this diaspora */}
       <Card className="rounded-2xl shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
             <FileText className="h-5 w-5" /> Purposes ({purposes.length})
           </CardTitle>
-          {isOfficer && (
-            <Button variant="outline" onClick={() => router.push(`/diasporas/${d.id}/purposes/new`)}>
-              Add Purpose
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {purposes.length === 0 ? (
@@ -375,18 +405,18 @@ export default function DiasporaViewPage() {
                         {p.status.replaceAll("_", " ")}
                       </span>
                     </TableCell>
-                    <TableCell>{[pretty(p.sector), pretty(p.sub_sector)].filter((x) => x !== "—").join(" / ") || "—"}</TableCell>
+                    <TableCell>
+                      {[pretty(p.sector), pretty(p.sub_sector)].filter((x) => x !== "—").join(" / ") || "—"}
+                    </TableCell>
                     <TableCell>{pretty(p.investment_type)}</TableCell>
                     <TableCell>
-                      {p.estimated_capital != null ? (
-                        <span>{p.estimated_capital.toLocaleString()} {p.currency || ""}</span>
-                      ) : "—"}
+                      {p.estimated_capital != null && p.estimated_capital !== ""
+                        ? `${Number(p.estimated_capital).toLocaleString()} ${p.currency || ""}`.trim()
+                        : "—"}
                     </TableCell>
                     <TableCell>{p.jobs_expected ?? "—"}</TableCell>
                     <TableCell>
-                      {p.land_requirement ? (
-                        <>Yes{p.land_size ? ` — ${p.land_size} m²` : ""}</>
-                      ) : "No"}
+                      {p.land_requirement ? <>Yes{p.land_size ? ` — ${p.land_size} m²` : ""}</> : "No"}
                     </TableCell>
                     <TableCell>{fmtDate(p.created_at)}</TableCell>
                   </TableRow>
@@ -397,7 +427,7 @@ export default function DiasporaViewPage() {
         </CardContent>
       </Card>
 
-      {/* Case */}
+      {/* Case (OneToOne) — ONLY for this diaspora */}
       <Card className="rounded-2xl shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -461,19 +491,20 @@ export default function DiasporaViewPage() {
         </CardContent>
       </Card>
 
-      {/* Referrals (if any) */}
+      {/* Referrals — ONLY those tied to the case above */}
       <Card className="rounded-2xl shadow-lg">
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Referrals</CardTitle>
+          <CardTitle className="text-xl font-bold">Referrals ({referrals.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {(!caseObj || referrals.length === 0) ? (
+          {referrals.length === 0 ? (
             <div className="text-sm text-gray-500">No referrals available.</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
+                  <TableHead>Case</TableHead>
                   <TableHead>From Office</TableHead>
                   <TableHead>To Office</TableHead>
                   <TableHead>Status</TableHead>
@@ -487,6 +518,7 @@ export default function DiasporaViewPage() {
                 {referrals.map((r) => (
                   <TableRow key={String(r.id)}>
                     <TableCell className="font-medium">{String(r.id)}</TableCell>
+                    <TableCell>{String(r.case)}</TableCell>
                     <TableCell>{String(r.from_office)}</TableCell>
                     <TableCell>{String(r.to_office)}</TableCell>
                     <TableCell>
@@ -510,4 +542,3 @@ export default function DiasporaViewPage() {
     </div>
   );
 }
-// frontend/src/app/diasporas/[id]/view/page.tsx

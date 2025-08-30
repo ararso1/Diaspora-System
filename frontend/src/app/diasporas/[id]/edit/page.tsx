@@ -8,11 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AnimatedModal } from "@/components/ui/animated-modal";
 import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
-import { cn } from "@/lib/utils";
 
-/** Reuse your modular inputs/components from previous messages */
-import Step1Basic from "@/components/wizard/sections/Step1Basic";
-import Step2Details from "@/components/wizard/sections/Step2Details";
+/** Optional shared inputs */
 import CountrySelect from "@/components/wizard/inputs/CountrySelect";
 import PhoneInput from "@/components/wizard/inputs/PhoneInput";
 
@@ -31,11 +28,9 @@ type ApiUser = {
 type ApiDiaspora = {
   id: string; // uuid
   diaspora_id: string;
-  user?: ApiUser | number | string;   // depending on your serializer
-  user_id?: number | string;          // if provided
-  first_name?: string;                // note: if your serializer duplicates user fields, we’ll still drive from User
-  last_name?: string;
-  email?: string | null;
+  user?: ApiUser | number | string;   // depending on serializer
+  user_id?: number | string;
+
   gender?: Gender | null;
   dob?: string | null;
 
@@ -65,14 +60,14 @@ type ApiDiaspora = {
 
 type ApiPurpose = {
   id: number | string;
-  diaspora: string;
+  diaspora: string; // FK to Diaspora.id (UUID)
   type: PurposeType;
   description?: string;
   sector?: string | null;
   sub_sector?: string | null;
-  investment_type?: string | null; // "new company" | "JV" | "expansion"
-  estimated_capital?: number | null;
-  currency?: string | null;        // "USD" | "ETB" | "EUR"
+  investment_type?: string | null;
+  estimated_capital?: number | string | null;
+  currency?: string | null;
   jobs_expected?: number | null;
   land_requirement?: boolean | null;
   land_size?: number | null;
@@ -117,7 +112,6 @@ const purposeTypeLabel: Record<PurposeType, string> = {
 };
 
 const pretty = (v?: string | null) => (v && String(v).trim().length ? v : "—");
-const fmtDate = (d?: string | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
 /** Fetch paginated or flat */
 async function fetchAllPaginated<T>(url: string, headers: Record<string, string>) {
@@ -184,14 +178,18 @@ export default function DiasporaEditPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const headers = token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  const headers = token
+    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    : { "Content-Type": "application/json" };
 
-  // Role (to gate actions if needed)
+  // Role gating
   const groupsRaw = typeof window !== "undefined" ? localStorage.getItem("user_groups") : "[]";
   const groups: string[] = useMemo(() => {
     try {
       const parsed = JSON.parse(groupsRaw || "[]");
-      return (Array.isArray(parsed) ? parsed : []).map((g) => (typeof g === "string" ? g : g?.name)).filter(Boolean);
+      return (Array.isArray(parsed) ? parsed : [])
+        .map((g) => (typeof g === "string" ? g : g?.name))
+        .filter(Boolean);
     } catch { return []; }
   }, [groupsRaw]);
   const isOfficer = groups.includes("Officer");
@@ -255,8 +253,9 @@ export default function DiasporaEditPage() {
 
         // resolve user: serializer may embed user or only id
         let u: ApiUser | null = null;
-        const uid = (typeof d.user === "object" && d.user && "id" in d.user) ? (d.user as ApiUser).id :
-                    d.user_id ?? (typeof d.user === "number" || typeof d.user === "string" ? d.user : null);
+        const uid = (typeof d.user === "object" && d.user && "id" in d.user)
+          ? (d.user as ApiUser).id
+          : d.user_id ?? (typeof d.user === "number" || typeof d.user === "string" ? d.user : null);
 
         if (typeof d.user === "object" && d.user) {
           u = d.user as ApiUser;
@@ -266,12 +265,12 @@ export default function DiasporaEditPage() {
         }
         setUser(u);
 
-        // set USER form fields
+        // set USER fields
         setFirstName(u?.first_name || "");
         setLastName(u?.last_name || "");
         setEmail(u?.email || "");
 
-        // set DIASPORA form fields
+        // set DIASPORA fields
         setGender((d.gender as Gender) || "");
         setDob(d.dob || "");
         setPrimaryPhone(d.primary_phone || "");
@@ -287,7 +286,6 @@ export default function DiasporaEditPage() {
         setEmPhone(d.emergency_contact_phone || "");
         setPassport(d.passport_no || "");
         setIdNumber(d.id_number || "");
-        // preferred language: if custom, put into Other box
         const baseLang = d.preferred_language || "English";
         if (["English", "Amharic", "Oromic", "Harari", "Arabic"].includes(baseLang)) {
           setLang(baseLang);
@@ -297,8 +295,14 @@ export default function DiasporaEditPage() {
           setLangOther(baseLang);
         }
 
-        // purposes
-        const ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
+        // purposes — ONLY for this diaspora
+        let ps: ApiPurpose[] = [];
+        try {
+          ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
+        } catch {
+          ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora_id=${id}`, headers);
+        }
+        ps = ps.filter((p) => String(p.diaspora) === String(id));
         setPurposes(ps);
       } catch (e: any) {
         setErr(e?.message || "Failed to load");
@@ -318,9 +322,9 @@ export default function DiasporaEditPage() {
       setSaving(true);
       setErr("");
 
-      // 1) Update USER (separate endpoint unless your backend accepts nested updates)
       const preferredLanguage = lang === "Other" ? (langOther || "Other") : lang;
 
+      // 1) Update USER (separate endpoint unless backend accepts nested updates)
       if (!SUPPORTS_NESTED_USER_UPDATE && user?.id != null) {
         const uPayload = {
           first_name: firstName || "",
@@ -356,7 +360,6 @@ export default function DiasporaEditPage() {
         id_number: idNumber || null,
       };
 
-      // nested user (optional)
       if (SUPPORTS_NESTED_USER_UPDATE) {
         dPayload.user = {
           first_name: firstName || "",
@@ -373,7 +376,6 @@ export default function DiasporaEditPage() {
       });
       if (!dRes.ok) throw new Error((await dRes.text()) || `Failed to update diaspora: ${dRes.status}`);
 
-      // reload light
       router.replace(`/diasporas/${diaspora.id}/view`);
     } catch (e: any) {
       setErr(e?.message || "Failed to save");
@@ -395,7 +397,12 @@ export default function DiasporaEditPage() {
       sector: p.sector || "",
       sub_sector: p.sub_sector || "",
       investment_type: p.investment_type || "",
-      estimated_capital: p.estimated_capital ?? null,
+      estimated_capital:
+        p.estimated_capital == null
+          ? null
+          : typeof p.estimated_capital === "string"
+            ? Number(p.estimated_capital)
+            : p.estimated_capital,
       currency: p.currency || "",
       jobs_expected: p.jobs_expected ?? null,
       land_requirement: !!p.land_requirement,
@@ -406,8 +413,27 @@ export default function DiasporaEditPage() {
     setPurposeModalOpen(true);
   };
 
+  const refreshPurposes = async () => {
+    if (!API_URL || !id) return;
+    let ps: ApiPurpose[] = [];
+    try {
+      ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
+    } catch {
+      ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora_id=${id}`, headers);
+    }
+    ps = ps.filter((p) => String(p.diaspora) === String(id));
+    setPurposes(ps);
+  };
+
   const savePurpose = async () => {
     if (!API_URL || !diaspora) return;
+
+    // Minimal validation
+    if (!purposeDraft.type) {
+      setErr("Please select a purpose type.");
+      return;
+    }
+
     const body: any = {
       diaspora: diaspora.id,
       type: purposeDraft.type,
@@ -415,11 +441,20 @@ export default function DiasporaEditPage() {
       sector: purposeDraft.sector || "",
       sub_sector: purposeDraft.sub_sector || "",
       investment_type: purposeDraft.investment_type || "",
-      estimated_capital: purposeDraft.estimated_capital ?? null,
+      estimated_capital:
+        purposeDraft.estimated_capital == null || Number.isNaN(purposeDraft.estimated_capital)
+          ? null
+          : Number(purposeDraft.estimated_capital),
       currency: purposeDraft.currency || "",
-      jobs_expected: purposeDraft.jobs_expected ?? null,
+      jobs_expected:
+        purposeDraft.jobs_expected == null || Number.isNaN(purposeDraft.jobs_expected)
+          ? null
+          : Number(purposeDraft.jobs_expected),
       land_requirement: !!purposeDraft.land_requirement,
-      land_size: purposeDraft.land_size ?? null,
+      land_size:
+        purposeDraft.land_size == null || Number.isNaN(purposeDraft.land_size)
+          ? null
+          : Number(purposeDraft.land_size),
       preferred_location_note: purposeDraft.preferred_location_note || "",
       status: purposeDraft.status || "DRAFT",
     };
@@ -431,9 +466,7 @@ export default function DiasporaEditPage() {
       const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
       if (!res.ok) throw new Error((await res.text()) || `Failed to ${isEdit ? "update" : "create"} purpose: ${res.status}`);
 
-      // refresh list
-      const ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${diaspora.id}`, headers);
-      setPurposes(ps);
+      await refreshPurposes();
       setPurposeModalOpen(false);
     } catch (e: any) {
       setErr(e?.message || "Failed to save purpose");
@@ -446,8 +479,7 @@ export default function DiasporaEditPage() {
     try {
       const res = await fetch(`${API_URL}/purposes/${pid}/`, { method: "DELETE", headers });
       if (!res.ok && res.status !== 204) throw new Error((await res.text()) || `Failed to delete: ${res.status}`);
-      const ps = await fetchAllPaginated<ApiPurpose>(`${API_URL}/purposes/?diaspora=${id}`, headers);
-      setPurposes(ps);
+      await refreshPurposes();
     } catch (e: any) {
       setErr(e?.message || "Failed to delete purpose");
     }
@@ -476,15 +508,17 @@ export default function DiasporaEditPage() {
 
   const fullName = `${firstName} ${lastName}`.trim() || "—";
   const langList = ["English", "Amharic", "Oromic", "Harari", "Arabic", "Other"];
-
-  // subsectors for current sector in modal
   const modalSubsectors = SECTORS[purposeDraft.sector || ""] || [];
 
   return (
     <div className="p-6 space-y-6">
       <Breadcrumb pageName="Edit Diaspora" />
 
-      <Button variant="ghost" className="mb-2 flex items-center gap-2" onClick={() => router.push(`/diasporas/${diaspora.id}/view`)}>
+      <Button
+        variant="ghost"
+        className="mb-2 flex items-center gap-2"
+        onClick={() => router.push(`/diasporas/${diaspora.id}/view`)}
+      >
         <ArrowLeft className="h-4 w-4" /> Back to Profile
       </Button>
 
@@ -505,7 +539,9 @@ export default function DiasporaEditPage() {
         <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* USER - names + email */}
           <div className="rounded-md border p-4 bg-gray-50">
-            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2"><User className="h-4 w-4" /> User (Django)</div>
+            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4" /> User (Django)
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="text-sm">First name</label>
@@ -524,7 +560,9 @@ export default function DiasporaEditPage() {
 
           {/* DIASPORA core */}
           <div className="rounded-md border p-4 bg-gray-50">
-            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2"><Phone className="h-4 w-4" /> Contacts</div>
+            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+              <Phone className="h-4 w-4" /> Contacts
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="text-sm">Primary phone (+251)</label>
@@ -537,7 +575,11 @@ export default function DiasporaEditPage() {
 
               <div>
                 <label className="text-sm">Gender</label>
-                <select className="mt-1 w-full rounded border p-2" value={gender} onChange={(e) => setGender((e.target.value || "") as Gender | "")}>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={gender}
+                  onChange={(e) => setGender((e.target.value || "") as Gender | "")}
+                >
                   <option value="">Select</option>
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
@@ -545,14 +587,18 @@ export default function DiasporaEditPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm flex items-center gap-2"><Calendar className="h-4 w-4" /> Date of birth</label>
+                <label className="text-sm flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Date of birth
+                </label>
                 <input type="date" className="mt-1 w-full rounded border p-2" value={dob || ""} onChange={(e) => setDob(e.target.value)} />
               </div>
             </div>
           </div>
 
           <div className="rounded-md border p-4 bg-gray-50 md:col-span-2">
-            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2"><Calendar className="h-4 w-4" /> Residence & Travel</div>
+            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4" /> Residence & Travel
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <div className="md:col-span-2">
                 <label className="text-sm">Country of residence</label>
@@ -579,7 +625,7 @@ export default function DiasporaEditPage() {
               <div>
                 <label className="text-sm">Preferred language</label>
                 <select className="mt-1 w-full rounded border p-2" value={lang} onChange={(e) => setLang(e.target.value)}>
-                  {["English","Amharic","Oromic","Harari","Arabic","Other"].map((l) => <option key={l} value={l}>{l}</option>)}
+                  {langList.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               {lang === "Other" && (
@@ -624,13 +670,12 @@ export default function DiasporaEditPage() {
                 <label className="text-sm">ID number</label>
                 <input className="mt-1 w-full rounded border p-2" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
               </div>
-              {/* If/when you add uploads, mount file inputs here and POST to /documents */}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Purposes manager */}
+      {/* Purposes manager (THIS diaspora only) */}
       <Card className="rounded-2xl shadow-lg">
         <CardHeader className="flex items-center justify-between">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -658,190 +703,213 @@ export default function DiasporaEditPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purposes.map((p) => (
-                  <TableRow key={String(p.id)}>
-                    <TableCell className="font-medium">{purposeTypeLabel[p.type] || p.type}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${purposeStatusPill[p.status] || "bg-gray-100"}`}>
-                        {p.status.replaceAll("_", " ")}
-                      </span>
-                    </TableCell>
-                    <TableCell>{[pretty(p.sector), pretty(p.sub_sector)].filter((x) => x !== "—").join(" / ") || "—"}</TableCell>
-                    <TableCell>{pretty(p.investment_type)}</TableCell>
-                    <TableCell>
-                      {p.estimated_capital != null ? (
-                        <span>{p.estimated_capital.toLocaleString()} {p.currency || ""}</span>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell>{p.jobs_expected ?? "—"}</TableCell>
-                    <TableCell>{p.land_requirement ? (p.land_size ? `Yes — ${p.land_size} m²` : "Yes") : "No"}</TableCell>
-                    <TableCell className="space-x-2">
-                      <Button size="sm" onClick={() => openEditPurpose(p)}>Edit</Button>
-                      <Button size="sm" variant="destructive" onClick={() => deletePurpose(p.id)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {purposes.map((p) => {
+                  const cap =
+                    p.estimated_capital == null || p.estimated_capital === ""
+                      ? "—"
+                      : `${Number(p.estimated_capital).toLocaleString()} ${p.currency || ""}`.trim();
+                  return (
+                    <TableRow key={String(p.id)}>
+                      <TableCell className="font-medium">{purposeTypeLabel[p.type] || p.type}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${purposeStatusPill[p.status] || "bg-gray-100"}`}>
+                          {p.status.replaceAll("_", " ")}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {[pretty(p.sector), pretty(p.sub_sector)]
+                          .filter((x) => x !== "—")
+                          .join(" / ") || "—"}
+                      </TableCell>
+                      <TableCell>{pretty(p.investment_type)}</TableCell>
+                      <TableCell>{cap}</TableCell>
+                      <TableCell>{p.jobs_expected ?? "—"}</TableCell>
+                      <TableCell>{p.land_requirement ? (p.land_size ? `Yes — ${p.land_size} m²` : "Yes") : "No"}</TableCell>
+                      <TableCell className="space-x-2">
+                        <Button size="sm" onClick={() => openEditPurpose(p)}>Edit</Button>
+                        <Button size="sm" variant="destructive" onClick={() => deletePurpose(p.id)}>Delete</Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Purpose Modal */}
+      {/* Purpose Modal (scrollable) */}
       <AnimatedModal
         open={purposeModalOpen}
         onClose={() => setPurposeModalOpen(false)}
         title={purposeDraft.id ? "Edit Purpose" : "Add Purpose"}
         maxWidthClassName="max-w-2xl"
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm">Purpose type</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.type || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, type: (e.target.value || "") as PurposeType })}
-              >
-                <option value="">Select</option>
-                <option value="INVESTMENT">Investment</option>
-                <option value="TOURISM">Tourism</option>
-                <option value="FAMILY">Family</option>
-                <option value="STUDY">Study</option>
-                <option value="CHARITY_NGO">Charity/NGO</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm">Status</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.status || "DRAFT"}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, status: e.target.value as ApiPurpose["status"] })}
-              >
-                {["DRAFT","SUBMITTED","UNDER_REVIEW","APPROVED","REJECTED","ON_HOLD"].map(s => (
-                  <option key={s} value={s}>{s.replaceAll("_"," ")}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="text-sm">Description</label>
-              <textarea
-                className="mt-1 w-full rounded border p-2 min-h-[90px]"
-                placeholder="Describe the purpose…"
-                value={purposeDraft.description || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, description: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm">Sector</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.sector || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, sector: e.target.value, sub_sector: "" })}
-              >
-                <option value="">Select sector</option>
-                {Object.keys(SECTORS).map((sec) => <option key={sec} value={sec}>{sec}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm">Sub-sector</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.sub_sector || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, sub_sector: e.target.value })}
-                disabled={!purposeDraft.sector}
-              >
-                <option value="">{purposeDraft.sector ? "Select sub-sector" : "Select a sector first"}</option>
-                {modalSubsectors.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm">Investment type</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.investment_type || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, investment_type: e.target.value })}
-              >
-                <option value="">Select</option>
-                {INVESTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm">Estimated capital</label>
-              <input
-                type="number"
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.estimated_capital ?? ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, estimated_capital: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm">Currency</label>
-              <select
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.currency || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, currency: e.target.value })}
-              >
-                <option value="">Select</option>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm">Expected jobs</label>
-              <input
-                type="number"
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.jobs_expected ?? ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, jobs_expected: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                id="land_req"
-                type="checkbox"
-                checked={!!purposeDraft.land_requirement}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, land_requirement: e.target.checked })}
-              />
-              <label htmlFor="land_req" className="text-sm">Land requirement</label>
-            </div>
-
-            {purposeDraft.land_requirement && (
+        <div className="max-h-[75vh] overflow-y-auto pr-1">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <label className="text-sm">Land size (m²)</label>
+                <label className="text-sm">Purpose type *</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.type || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, type: (e.target.value || "") as PurposeType })}
+                >
+                  <option value="">Select</option>
+                  <option value="INVESTMENT">Investment</option>
+                  <option value="TOURISM">Tourism</option>
+                  <option value="FAMILY">Family</option>
+                  <option value="STUDY">Study</option>
+                  <option value="CHARITY_NGO">Charity/NGO</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm">Status</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.status || "DRAFT"}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, status: e.target.value as ApiPurpose["status"] })}
+                >
+                  {["DRAFT","SUBMITTED","UNDER_REVIEW","APPROVED","REJECTED","ON_HOLD"].map(s => (
+                    <option key={s} value={s}>{s.replaceAll("_"," ")}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm">Description</label>
+                <textarea
+                  className="mt-1 w-full rounded border p-2 min-h-[90px]"
+                  placeholder="Describe the purpose…"
+                  value={purposeDraft.description || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, description: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm">Sector</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.sector || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, sector: e.target.value, sub_sector: "" })}
+                >
+                  <option value="">Select sector</option>
+                  {Object.keys(SECTORS).map((sec) => <option key={sec} value={sec}>{sec}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm">Sub-sector</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.sub_sector || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, sub_sector: e.target.value })}
+                  disabled={!purposeDraft.sector}
+                >
+                  <option value="">{purposeDraft.sector ? "Select sub-sector" : "Select a sector first"}</option>
+                  {(SECTORS[purposeDraft.sector || ""] || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm">Investment type</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.investment_type || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, investment_type: e.target.value })}
+                >
+                  <option value="">Select</option>
+                  {INVESTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm">Estimated capital</label>
                 <input
                   type="number"
                   className="mt-1 w-full rounded border p-2"
-                  value={purposeDraft.land_size ?? ""}
-                  onChange={(e) => setPurposeDraft({ ...purposeDraft, land_size: e.target.value ? Number(e.target.value) : null })}
+                  value={purposeDraft.estimated_capital ?? ""}
+                  onChange={(e) =>
+                    setPurposeDraft({
+                      ...purposeDraft,
+                      estimated_capital: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
                 />
               </div>
-            )}
 
-            <div className="md:col-span-2">
-              <label className="text-sm">Preferred location note</label>
-              <input
-                className="mt-1 w-full rounded border p-2"
-                value={purposeDraft.preferred_location_note || ""}
-                onChange={(e) => setPurposeDraft({ ...purposeDraft, preferred_location_note: e.target.value })}
-              />
+              <div>
+                <label className="text-sm">Currency</label>
+                <select
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.currency || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, currency: e.target.value })}
+                >
+                  <option value="">Select</option>
+                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm">Expected jobs</label>
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.jobs_expected ?? ""}
+                  onChange={(e) =>
+                    setPurposeDraft({
+                      ...purposeDraft,
+                      jobs_expected: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  id="land_req"
+                  type="checkbox"
+                  checked={!!purposeDraft.land_requirement}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, land_requirement: e.target.checked })}
+                />
+                <label htmlFor="land_req" className="text-sm">Land requirement</label>
+              </div>
+
+              {purposeDraft.land_requirement && (
+                <div>
+                  <label className="text-sm">Land size (m²)</label>
+                  <input
+                    type="number"
+                    className="mt-1 w-full rounded border p-2"
+                    value={purposeDraft.land_size ?? ""}
+                    onChange={(e) =>
+                      setPurposeDraft({
+                        ...purposeDraft,
+                        land_size: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  />
+                </div>
+              )}
+
+              <div className="md:col-span-2">
+                <label className="text-sm">Preferred location note</label>
+                <input
+                  className="mt-1 w-full rounded border p-2"
+                  value={purposeDraft.preferred_location_note || ""}
+                  onChange={(e) => setPurposeDraft({ ...purposeDraft, preferred_location_note: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setPurposeModalOpen(false)}>Cancel</Button>
-            <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={savePurpose}>
-              {purposeDraft.id ? "Save" : "Create"}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setPurposeModalOpen(false)}>Cancel</Button>
+              <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={savePurpose}>
+                {purposeDraft.id ? "Save" : "Create"}
+              </Button>
+            </div>
           </div>
         </div>
       </AnimatedModal>

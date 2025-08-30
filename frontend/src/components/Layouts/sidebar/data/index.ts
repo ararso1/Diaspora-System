@@ -73,6 +73,7 @@ export const NAV_DATA = [
         icon: Icons.AnnouncementsAvatar,
         allowedRoles: [
           "Officer",
+          "Diaspora",
         ],
         items: [],
       },
@@ -82,6 +83,7 @@ export const NAV_DATA = [
         icon: Icons.HelpGuidelinesAvatar,
         allowedRoles: [
           "Officer",
+          "Diaspora",
         ],
         items: [],
       },

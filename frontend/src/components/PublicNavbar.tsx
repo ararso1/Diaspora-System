@@ -3,12 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const ACCENT = "#5750f1";
 
 export default function PublicNavbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation('common');
+  
+  // Fallback function in case translation is not available
+  const translate = (key: string, fallback: string) => {
+    try {
+      return t(key) || fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   const linkActive = (href: string) =>
     pathname === href ? "text-[#5750f1]" : "text-dark-2 dark:text-dark-6";
@@ -47,20 +59,21 @@ export default function PublicNavbar() {
 
         {/* Desktop nav */}
         <ul className="hidden items-center gap-6 md:flex">
-          <li><NavLink href="/">Home</NavLink></li>
-          <li><NavLink href="/about">About</NavLink></li>
+          <li><NavLink href="/">{translate('navigation.home', 'Home')}</NavLink></li>
+          <li><NavLink href="/about">{translate('navigation.about', 'About')}</NavLink></li>
           <li><NavLink href="/services">Services</NavLink></li>
-          <li><NavLink href="/contact">Contact</NavLink></li>
+          <li><NavLink href="/contact">{translate('navigation.contact', 'Contact')}</NavLink></li>
         </ul>
 
         {/* Auth buttons (desktop) */}
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher variant="dropdown" className="mr-2" />
           <Link
             href="/auth/sign-in"
             className="rounded-md border px-4 py-2 font-semibold hover:opacity-90"
             style={{ borderColor: ACCENT, color: ACCENT }}
           >
-            Sign In
+            {translate('auth.signIn', 'Sign In')}
           </Link>
           <Link
             href="/auth/sign-up"
@@ -88,19 +101,22 @@ export default function PublicNavbar() {
       {open && (
         <div className="border-t border-gray-200/70 md:hidden dark:border-dark-3">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
-            <NavLink href="/">Home</NavLink>
-            <NavLink href="/about">About</NavLink>
+            <NavLink href="/">{translate('navigation.home', 'Home')}</NavLink>
+            <NavLink href="/about">{translate('navigation.about', 'About')}</NavLink>
             <NavLink href="/services">Services</NavLink>
-            <NavLink href="/contact">Contact</NavLink>
-            <div className="mt-2 flex gap-2">
-              <Link
-                href="/auth/sign-in"
-                className="flex-1 rounded-md border px-4 py-2 text-center font-semibold"
-                style={{ borderColor: ACCENT, color: ACCENT }}
-                onClick={() => setOpen(false)}
-              >
-                Sign In
-              </Link>
+            <NavLink href="/contact">{translate('navigation.contact', 'Contact')}</NavLink>
+            <div className="mt-2">
+              <LanguageSwitcher variant="buttons" className="mb-3" />
+            </div>
+            <div className="flex gap-2">
+                              <Link
+                  href="/auth/sign-in"
+                  className="flex-1 rounded-md border px-4 py-2 text-center font-semibold"
+                  style={{ borderColor: ACCENT, color: ACCENT }}
+                  onClick={() => setOpen(false)}
+                >
+                  {translate('auth.signIn', 'Sign In')}
+                </Link>
               <Link
                 href="/auth/sign-up"
                 className="flex-1 rounded-md px-4 py-2 text-center font-semibold text-white"

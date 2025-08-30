@@ -1,0 +1,74 @@
+{
+  "navigation": {
+    "home": "ቤት",
+    "dashboard": "ዳሽቦርድ",
+    "about": "ስለ",
+    "contact": "አድራሻ",
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "profile": "መገለጫ",
+    "settings": "ቅንብሮች"
+  },
+  "home": {
+    "title": "የድያስፖራ ስርዓት",
+    "subtitle": "የድያስፖራ አስተዳደር ስርዓት ውስጥ እንኳን በደህና መጡ",
+    "description": "የድያስፖራ ጉዳዮችን እና አገልግሎቶችን ለማስተዳደር ሁለገብ መድረኳ",
+    "getStarted": "ጀምር",
+    "learnMore": "ተጨማሪ ይወቁ",
+    "features": {
+      "title": "ባህሪያት",
+      "management": "የድያስፖራ አስተዳደር",
+      "tracking": "የጉዳይ መከታተል",
+      "reports": "ትንተና እና ሪፖርቶች",
+      "communication": "የመገናኛ መሳሪያዎች"
+    }
+  },
+  "dashboard": {
+    "title": "ዳሽቦርድ",
+    "welcome": "እንኳን በደህና ተመለሱ",
+    "overview": "አጠቃላይ እይታ",
+    "recentActivity": "የቅርብ ጊዜ እንቅስቃሴ",
+    "quickActions": "ፈጣን ድርጊቶች",
+    "statistics": "ስታቲስቲክስ"
+  },
+  "auth": {
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "username": "የተጠቃሚ ስም",
+    "password": "የይለፍ ቃል",
+    "email": "ኢሜይል",
+    "signIn": "ግባ",
+    "signOut": "ውጣ",
+    "forgotPassword": "የይለፍ ቃልዎን ረሱ?",
+    "rememberMe": "አስታውሰኝ"
+  },
+  "common": {
+    "loading": "በመጫን ላይ...",
+    "error": "ስህተት",
+    "success": "ተሳክቷል",
+    "cancel": "ሰርዝ",
+    "save": "አስቀምጥ",
+    "edit": "አርትዕ",
+    "delete": "ሰርዝ",
+    "view": "እይታ",
+    "search": "ፈልግ",
+    "filter": "ፊልተር",
+    "sort": "ደርድር",
+    "refresh": "አድስ",
+    "back": "ተመለስ",
+    "next": "ቀጣይ",
+    "previous": "የቀድሞ",
+    "submit": "ላክ",
+    "close": "ዝጋ",
+    "open": "ክፈት",
+    "yes": "አዎ",
+    "no": "አይ",
+    "language": "ቋንቋ"
+  },
+  "languages": {
+    "en": "English",
+    "am": "አማርኛ",
+    "ha": "ሐረሪ",
+    "om": "ኦሮምኛ"
+  }
+}

@@ -2,11 +2,23 @@
 
 import PublicNavbar from "@/components/PublicNavbar";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const ACCENT = "#5750f1";
 
 export default function HomePage() {
   const year = new Date().getFullYear();
+  const { t } = useTranslation('common');
+  
+  // Fallback function in case translation is not available
+  const translate = (key: string, fallback: string) => {
+    try {
+      return t(key) || fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-[#020d1a] dark:text-white">
@@ -22,17 +34,17 @@ export default function HomePage() {
           }}
         />
         <div className="mx-auto max-w-7xl px-4 py-16 md:py-24">
+          {/* Language Switcher for Home Page */}
+          <div className="mb-8 flex justify-end">
+            <LanguageSwitcher variant="buttons" />
+          </div>
           <div className="grid items-center gap-10 md:grid-cols-2">
             <div>
               <h1 className="mb-3 text-4xl font-extrabold leading-tight md:text-5xl">
-                A faster way to handle{" "}
-                <span className="underline decoration-4" style={{ textDecorationColor: ACCENT }}>
-                  complaints & appeals
-                </span>
+                {translate('home.title', 'Diaspora System')}
               </h1>
               <p className="max-w-xl text-lg text-gray-600 dark:text-dark-6">
-                Paper processes—modernized. Submit, track, transfer, and resolve
-                cases across offices with clear accountability and timely reports.
+                {translate('home.description', 'A comprehensive platform for managing diaspora affairs and services')}
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -41,14 +53,14 @@ export default function HomePage() {
                   className="rounded-md px-6 py-3 font-semibold text-white hover:opacity-90"
                   style={{ background: ACCENT }}
                 >
-                  Get Started
+                  {translate('home.getStarted', 'Get Started')}
                 </Link>
                 <Link
                   href="/services"
                   className="rounded-md border px-6 py-3 font-semibold hover:bg-gray-50 dark:hover:bg-dark-2"
                   style={{ borderColor: "rgba(87,80,241,0.35)", color: ACCENT }}
                 >
-                  Learn More
+                  {translate('home.learnMore', 'Learn More')}
                 </Link>
               </div>
 
@@ -56,15 +68,15 @@ export default function HomePage() {
               <div className="mt-8 flex flex-wrap items-center gap-6 text-sm text-gray-600 dark:text-dark-6">
                 <div className="flex items-center gap-2">
                   <span className="inline-block size-2 rounded-full" style={{ background: ACCENT }} />
-                  Secure access by role
+                  {translate('home.features.management', 'Diaspora Management')}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block size-2 rounded-full" style={{ background: ACCENT }} />
-                  Real-time status
+                  {translate('home.features.tracking', 'Case Tracking')}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block size-2 rounded-full" style={{ background: ACCENT }} />
-                  Actionable reports
+                  {translate('home.features.reports', 'Analytics & Reports')}
                 </div>
               </div>
             </div>
@@ -121,15 +133,15 @@ export default function HomePage() {
       {/* FEATURES */}
       <section className="mx-auto max-w-7xl px-4 py-12 md:py-16">
         <div className="mb-8 flex items-end justify-between">
-          <h2 className="text-2xl font-bold">Why choose our platform?</h2>
+          <h2 className="text-2xl font-bold">{translate('home.features.title', 'Features')}</h2>
           <span className="text-sm text-gray-600 dark:text-dark-6">
-            Built for Harari People Regional Presdient office
+            Built for Harari People Regional President office
           </span>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-lg border border-gray-200 p-6 transition hover:shadow-sm dark:border-dark-3">
             <h3 className="mb-2 text-lg font-semibold" style={{ color: ACCENT }}>
-              Track & Update
+              {translate('home.features.tracking', 'Case Tracking')}
             </h3>
             <p className="text-gray-600 dark:text-dark-6">
               Follow every case—from intake to closure—with clear statuses and audit logs.
@@ -145,7 +157,7 @@ export default function HomePage() {
           </div>
           <div className="rounded-lg border border-gray-200 p-6 transition hover:shadow-sm dark:border-dark-3">
             <h3 className="mb-2 text-lg font-semibold" style={{ color: ACCENT }}>
-              Reports & Insights
+              {translate('home.features.reports', 'Analytics & Reports')}
             </h3>
             <p className="text-gray-600 dark:text-dark-6">
               Understand trends by category, source, and resolution speed to improve service.

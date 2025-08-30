@@ -3,13 +3,14 @@
 import PublicNavbar from "@/components/PublicNavbar";
 import { useState } from "react";
 import Link from "next/link";
+import { registerUser } from "@/utils/api";
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
   const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     confirm_password: "",
@@ -18,6 +19,7 @@ export default function SignUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -40,71 +42,45 @@ export default function SignUpPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-
     if (!API_URL) {
-      setError("NEXT_PUBLIC_API_URL is not configured.");
+      setError("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
-    const v = validate();
-    if (v) {
-      setError(v);
+    if (!form.firstName || !form.lastName || !form.phone) {
+      setError("First name, last name and phone are required");
       return;
     }
 
     try {
       setSubmitting(true);
-
-      // ✅ Correct nested payload for /public/register/
-      const payload = {
-        user: {
-          email: form.email,
-          username: form.email, // use email as username
-          first_name: form.first_name,
-          last_name: form.last_name,
-          password: form.password,
-        },
-        confirm_password: form.confirm_password, // optional, validated in view
-        // You can add initial diaspora fields later if you want:
-        // primary_phone: "+2519...", gender: "FEMALE", ...
+      const usernameBase = form.email || form.phone || `${form.firstName.toLowerCase()}_${Date.now()}`;
+      const payload: Record<string, any> = {
+        username: usernameBase,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        phone_number: form.phone,
+        password: form.password,
+        confirm_password: form.confirmPassword,
+        status: "active",
+        groups: ["Citizen"],
       };
+      if (form.email) payload.email = form.email;
+      if (form.nationalId) payload.national_id = form.nationalId;
 
-      const res = await fetch(`${API_URL}/public/register/`, {
+      const res = await fetch(`${API_URL}/users/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
-        // Try to read DRF error JSON; fall back to text
-        let msg = "";
-        try {
-          const j = await res.json();
-          msg =
-            typeof j === "string"
-              ? j
-              : j.detail ||
-                Object.entries(j)
-                  .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
-                  .join("; ");
-        } catch {
-          msg = await res.text();
-        }
+        const msg = await res.text();
         throw new Error(msg || `Signup failed (${res.status})`);
       }
 
-      // optional: you can read the created diaspora response here
-      // const created = await res.json();
-
-      setSuccess("Account created successfully. You can now sign in.");
-      setForm({
-        first_name: "",
-        last_name: "",
-        email: "",
-        password: "",
-        confirm_password: "",
-      });
+      setSuccess("Account created. You can now sign in.");
+      setForm({ firstName: "", lastName: "", email: "", phone: "", nationalId: "", address: "", password: "", confirmPassword: "" });
     } catch (err: any) {
-      setError(err?.message || "Signup failed");
+      setError(err?.response?.data?.detail || err?.message || "Registration failed");
     } finally {
       setSubmitting(false);
     }
@@ -124,6 +100,10 @@ export default function SignUpPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Username *</label>
+            <input name="username" value={form.username} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">First Name *</label>
@@ -146,42 +126,24 @@ export default function SignUpPage() {
               />
             </div>
           </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Email *</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
-            />
-          </div>
-
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Password *</label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                required
-                className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
-                placeholder="At least 8 characters"
-              />
+              <label className="mb-1 block text-sm font-medium">Email (optional)</label>
+              <input type="email" name="email" value={form.email} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Confirm Password *</label>
-              <input
-                type="password"
-                name="confirm_password"
-                value={form.confirm_password}
-                onChange={handleChange}
-                required
-                className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
-              />
+              <label className="mb-1 block text-sm font-medium">Phone *</label>
+              <input name="phone" value={form.phone} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" required />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">National ID (optional)</label>
+              <input name="nationalId" value={form.nationalId} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Address</label>
+              <input name="address" value={form.address} onChange={handleChange} className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2" />
             </div>
           </div>
 

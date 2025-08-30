@@ -4,11 +4,13 @@ import { useEffect, useState, useMemo } from "react";
 import { SearchIcon } from "@/assets/icons";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import { useSidebarContext } from "../sidebar/sidebar-context";
 import { MenuIcon } from "./icons";
 import { Notification } from "./notification";
 import { ThemeToggleSwitch } from "./theme-toggle";
 import { UserInfo } from "./user-info";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 function toTitleCase(input?: string) {
   const s = (input ?? "").trim();
@@ -18,6 +20,16 @@ function toTitleCase(input?: string) {
 
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext();
+  const { t } = useTranslation('common');
+  
+  // Fallback function in case translation is not available
+  const translate = (key: string, fallback: string) => {
+    try {
+      return t(key) || fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   const [roleRaw, setRoleRaw] = useState<string>("Guest");
 
@@ -75,12 +87,13 @@ export function Header() {
         <div className="relative w-full max-w-[300px]">
           <input
             type="search"
-            placeholder="Search"
+            placeholder={translate('common.search', 'Search')}
             className="flex w-full items-center gap-3.5 rounded-full border bg-gray-2 py-3 pl-[53px] pr-5 outline-none transition-colors focus-visible:border-primary dark:border-dark-3 dark:bg-dark-2 dark:hover:border-dark-4 dark:hover:bg-dark-3 dark:hover:text-dark-6 dark:focus-visible:border-primary"
           />
           <SearchIcon className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 max-[1015px]:size-5" />
         </div>
 
+        <LanguageSwitcher variant="dropdown" className="mr-2" />
         <ThemeToggleSwitch />
         <Notification />
 

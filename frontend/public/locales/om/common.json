@@ -1,0 +1,74 @@
+{
+  "navigation": {
+    "home": "Mana",
+    "dashboard": "Dashboard",
+    "about": "Waa'ee",
+    "contact": "Quunnamaa",
+    "login": "Seeni",
+    "logout": "Ba'i",
+    "profile": "Profaayilii",
+    "settings": "Qindaawwan"
+  },
+  "home": {
+    "title": "Sisteemii Diaspora",
+    "subtitle": "Baga nagaan dhuftan Sisteemii Diaspora",
+    "description": "Platformii guutuu diaspora qindeessuu fi tajaajila isaa",
+    "getStarted": "Jalqabi",
+    "learnMore": "Baradhaa",
+    "features": {
+      "title": "Aangoo",
+      "management": "Diaspora Qindeessuu",
+      "tracking": "Argaa Dhimma",
+      "reports": "Analytics fi Reports",
+      "communication": "Meejiiwwan Walqunnamaa"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Baga nagaan deebite",
+    "overview": "Akkasitti",
+    "recentActivity": "Hojii Dhiyootti",
+    "quickActions": "Gochoota Dafan",
+    "statistics": "Statistiksii"
+  },
+  "auth": {
+    "login": "Seeni",
+    "logout": "Ba'i",
+    "username": "Maqaa Fayyadamaa",
+    "password": "Jecha Darbii",
+    "email": "Imeelii",
+    "signIn": "Seeni",
+    "signOut": "Ba'i",
+    "forgotPassword": "Jecha Darbii kee Dagadhe?",
+    "rememberMe": "Na Yaadadhu"
+  },
+  "common": {
+    "loading": "Fe'aa jiru...",
+    "error": "Dogoggora",
+    "success": "Milkaa'e",
+    "cancel": "Dhiisi",
+    "save": "Olkaa'i",
+    "edit": "Jijjiirsi",
+    "delete": "Qori",
+    "view": "Argaa",
+    "search": "Barbaadi",
+    "filter": "Filter",
+    "sort": "Sadarkaa",
+    "refresh": "Haalaasuu",
+    "back": "Duubatti",
+    "next": "Itti aansu",
+    "previous": "Duraan",
+    "submit": "Ersi",
+    "close": "Cufi",
+    "open": "Bani",
+    "yes": "Eeyyee",
+    "no": "Lakki",
+    "language": "Afaan"
+  },
+  "languages": {
+    "en": "English",
+    "am": "Amaariffaa",
+    "ha": "Afaan Hararii",
+    "om": "Afaan Oromoo"
+  }
+}

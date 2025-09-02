@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV_DATA } from "./data";
-import { defaultRouteForRole, slugFromRole } from "@/lib/role";
+import { defaultRouteForRole } from "@/lib/role";
 import { ArrowLeftIcon, ChevronUp } from "./icons";
 import { MenuItem } from "./menu-item";
 import { useSidebarContext } from "./sidebar-context";
@@ -144,52 +144,57 @@ export function Sidebar() {
                                 className="ml-9 mr-0 space-y-1.5 pb-[15px] pr-0 pt-2"
                                 role="menu"
                               >
-                                {filterByRole(item.items).map((subItem) => (
-                                  <li key={subItem.title} role="none">
-                                    <MenuItem
-                                      as="link"
-                                      href={
-                                        subItem.url === "/dashboard" && role
-                                          ? defaultRouteForRole(role)
-                                          : subItem.url
-                                      }
-                                      isActive={pathname === subItem.url}
-                                    >
-                                      <span>{subItem.title}</span>
-                                    </MenuItem>
-                                  </li>
-                                ))}
+                                                             {filterByRole(item.items).map((subItem) => (
+                                   <li key={subItem.title} role="none">
+                                     <MenuItem
+                                       as="link"
+                                                                               href={subItem.url}
+                                       isActive={
+                                         subItem.url === "/dashboard" 
+                                           ? pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+                                           : subItem.url === "/diasporas"
+                                           ? pathname === "/diasporas" || pathname.startsWith("/diasporas/")
+                                           : pathname === subItem.url
+                                       }
+                                     >
+                                       <span>{subItem.title}</span>
+                                     </MenuItem>
+                                   </li>
+                                 ))}
                               </ul>
                             )}
                           </div>
                         ) : (
-                          (() => {
-                            const href =
-                              "url" in item
-                                ? item.url + ""
-                                : "/" +
-                                  item.title.toLowerCase().split(" ").join("-");
-                            const finalHref =
-                              href === "/dashboard" && role
-                                ? defaultRouteForRole(role)
-                                : href;
+                                                     (() => {
+                             const href =
+                               "url" in item
+                                 ? item.url + ""
+                                 : "/" +
+                                   item.title.toLowerCase().split(" ").join("-");
+                             const finalHref = href;
 
-                            return (
-                              <MenuItem
-                                className="flex items-center gap-3 py-3"
-                                as="link"
-                                href={finalHref}
-                                isActive={pathname === href}
-                              >
-                                <item.icon
-                                  className="size-6 shrink-0"
-                                  aria-hidden="true"
-                                />
+                             return (
+                               <MenuItem
+                                 className="flex items-center gap-3 py-3"
+                                 as="link"
+                                 href={finalHref}
+                                 isActive={
+                                   href === "/dashboard" 
+                                     ? pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+                                     : href === "/diasporas"
+                                     ? pathname === "/diasporas" || pathname.startsWith("/diasporas/")
+                                     : pathname === href
+                                 }
+                               >
+                                 <item.icon
+                                   className="size-6 shrink-0"
+                                   aria-hidden="true"
+                                 />
 
-                                <span>{item.title}</span>
-                              </MenuItem>
-                            );
-                          })()
+                                 <span>{item.title}</span>
+                               </MenuItem>
+                             );
+                           })()
                         )}
                       </li>
                     ))}

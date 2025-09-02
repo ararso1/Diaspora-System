@@ -9,7 +9,8 @@ export function defaultRouteForRole(role?: string | null): string {
   if (!role) return "/dashboard";
   const normalized = role.toLowerCase();
   if (normalized.includes("citizen")) return "/cases";
-  return `/dashboard/${slugFromRole(role)}`;
+  if (normalized.includes("diaspora")) return "/diasporas";
+  return "/dashboard";
 }
 
 

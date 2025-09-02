@@ -63,7 +63,7 @@ export const NAV_DATA = [
       },
       {
         title: "My Dashboard",
-        url: "/diaspora",
+        url: "/diasporas",
         icon: Icons.HomeIcon,
         allowedRoles: ["Diaspora"],
         items: [],

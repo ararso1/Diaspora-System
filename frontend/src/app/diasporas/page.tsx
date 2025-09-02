@@ -34,13 +34,89 @@ type Row = {
   email: string;
   phone: string;
   nationalId: string;
-  roles: string[];   // always ["Diaspora"] here
-  status: string;    // display only
+  roles: string[];
+  status: string;
 };
 
 const statusBadge: Record<string, string> = {
   active: "bg-green-200 text-green-800",
 };
+
+/** DRF-friendly fetch-all helper */
+async function fetchAllPaginated<T>(url: string, headers: Record<string, string>) {
+  let next: string | null = url;
+  const all: T[] = [];
+  while (next) {
+    const res = await fetch(next, { headers, cache: "no-store" });
+    if (!res.ok) throw new Error(`${res.status} on ${next}`);
+    const data: any = await res.json();
+    if (Array.isArray(data)) {
+      all.push(...data); next = null;
+    } else if (Array.isArray(data?.results)) {
+      all.push(...data.results); next = data.next || null;
+    } else {
+      all.push(data); next = null;
+    }
+  }
+  return all;
+}
+
+/** Read roles robustly from localStorage.role */
+function readRolesFromStorage(): string[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem("role");
+  if (!raw) return [];
+  // Try JSON array first
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((g) => (typeof g === "string" ? g : g?.name))
+        .filter(Boolean);
+    }
+  } catch {
+    // fall through if not JSON
+  }
+  // Handle plain string (or comma-separated)
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Resolve my diaspora UUID (prefer cached, else query by user_id) */
+async function resolveMyDiasporaId(
+  apiUrl: string,
+  headers: Record<string, string>
+): Promise<string | null> {
+  // 1) cached
+  const cached = localStorage.getItem("diaspora_id");
+  if (cached) return cached;
+
+  // 2) if we have user_id, try to fetch by user
+  const userId = localStorage.getItem("user_id");
+  if (!userId) return null;
+
+  // Try `/diasporas/?user=<user_id>`
+  const url = new URL(`${apiUrl}/diasporas/`);
+  url.searchParams.set("user", String(userId));
+  url.searchParams.set("page_size", "1");
+  try {
+    const res = await fetch(url.toString(), { headers, cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    const data: any = await res.json();
+    const first =
+      Array.isArray(data) ? data[0] : Array.isArray(data?.results) ? data.results[0] : null;
+    const id = first?.id || first?.diaspora_id || null;
+    if (id) {
+      localStorage.setItem("diaspora_id", String(id));
+      return String(id);
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 export default function DiasporasPage() {
   const router = useRouter();
@@ -54,22 +130,12 @@ export default function DiasporasPage() {
   const [loading, setLoading] = useState(false);
   const [pageError, setPageError] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const currentUserGroups: string[] = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = localStorage.getItem("user_groups");
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.map((g) => (typeof g === "string" ? g : g?.name)).filter(Boolean);
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  }, []);
-  const isOfficer = currentUserGroups.includes("Officer");
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const roles = useMemo(readRolesFromStorage, []);
+  const isOfficer = roles.includes("Officer");
+  const isDiasporaUser = roles.includes("Diaspora");
 
   const mapDiaspora = (d: ApiDiaspora): Row => {
     const name =
@@ -96,15 +162,38 @@ export default function DiasporasPage() {
     try {
       setLoading(true);
       setPageError("");
-      const res = await fetch(`${API_URL}/diasporas/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`Failed to load diasporas: ${res.status}`);
-      const data: ApiDiaspora[] = await res.json();
-      setRows((Array.isArray(data) ? data : []).map(mapDiaspora));
+
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      if (isOfficer) {
+        // Officers: all
+        const list = await fetchAllPaginated<ApiDiaspora>(`${API_URL}/diasporas/`, headers);
+        setRows(list.map(mapDiaspora));
+      } else if (isDiasporaUser) {
+        // Diaspora: only self
+        const myId =
+          localStorage.getItem("diaspora_id") ||
+          (await resolveMyDiasporaId(API_URL, headers));
+        if (!myId) {
+          throw new Error(
+            "Could not determine your diaspora profile. Please sign out and sign in again."
+          );
+        }
+        const res = await fetch(`${API_URL}/diasporas/${myId}/`, {
+          headers,
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Failed to load your profile: ${res.status}`);
+        const me: ApiDiaspora = await res.json();
+        setRows([mapDiaspora(me)]);
+      } else {
+        // Unknown role: show nothing
+        setRows([]);
+        setPageError("You do not have permission to view this page.");
+      }
     } catch (err: any) {
       setPageError(err?.message || "Failed to load diasporas");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -113,10 +202,13 @@ export default function DiasporasPage() {
   useEffect(() => {
     loadDiasporas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isOfficer, isDiasporaUser]);
 
   const statusOptions = useMemo(() => ["all", "active"], []);
-  const roleOptions = useMemo(() => ["all", "Diaspora", "Officer"], []);
+  const roleOptions = useMemo(
+    () => (isOfficer ? ["all", "Diaspora", "Officer"] : ["Diaspora"]),
+    [isOfficer]
+  );
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -144,11 +236,13 @@ export default function DiasporasPage() {
         {/* Top bar */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
+            {/* Role filter disabled for diaspora users */}
             <div className="w-[200px]">
               <select
                 className="w-full rounded border border-gray-300 p-2 dark:border-dark-3 dark:bg-dark-2"
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
+                disabled={!isOfficer}
               >
                 {roleOptions.map((r) => (
                   <option key={r} value={r}>
@@ -180,13 +274,15 @@ export default function DiasporasPage() {
             />
           </div>
 
-          <Button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            onClick={() => router.push("/diasporas/new")}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add New
-          </Button>
+          {isOfficer && (
+            <Button
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              onClick={() => router.push("/diasporas/new")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New
+            </Button>
+          )}
         </div>
 
         {/* Table */}
@@ -243,7 +339,7 @@ export default function DiasporasPage() {
                         statusBadge[(u.status || "").toLowerCase()] || "bg-gray-200 text-gray-800"
                       }`}
                     >
-                      {u.status[0].toUpperCase() + u.status.slice(1)}
+                      {u.status ? u.status[0].toUpperCase() + u.status.slice(1) : "—"}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -256,15 +352,14 @@ export default function DiasporasPage() {
                       >
                         <Eye className="h-4 w-4 text-blue-500" />
                       </Button>
-                        <Button
+                      <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => router.push(`/diasporas/${u.id}/edit`)}
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4 text-green-500" />
-                        </Button>
-                      
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

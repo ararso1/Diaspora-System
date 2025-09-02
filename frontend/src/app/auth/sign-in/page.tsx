@@ -20,7 +20,7 @@ export default function SignIn() {
                 Welcome back
               </h1>
               <p className="mt-1 text-sm text-gray-600 dark:text-dark-6">
-                Sign in to continue to the Harari Regional Complaint & Appeal System.
+                Sign in to continue to the Harari Regional Diaspora System.
               </p>
             </div>
 

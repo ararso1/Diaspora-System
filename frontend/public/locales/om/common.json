@@ -10,25 +10,25 @@
     "settings": "Qindaawwan"
   },
   "home": {
-    "title": "Sisteemii Diaspora",
-    "subtitle": "Baga nagaan dhuftan Sisteemii Diaspora",
-    "description": "Platformii guutuu diaspora qindeessuu fi tajaajila isaa",
+    "title": "Sisitemii Diaspora",
+    "subtitle": "Baga nagaan dhuftan Sisitemii Qaawwii Diaspora",
+    "description": "Platforma guutuu hojii hundaatiin qaawwii diaspora fi tajaajiloota",
     "getStarted": "Jalqabi",
-    "learnMore": "Baradhaa",
+    "learnMore": "Barsiisuu dabalataa",
     "features": {
-      "title": "Aangoo",
-      "management": "Diaspora Qindeessuu",
-      "tracking": "Argaa Dhimma",
-      "reports": "Analytics fi Reports",
-      "communication": "Meejiiwwan Walqunnamaa"
+      "title": "Aangawwan",
+      "management": "Qaawwii Diaspora",
+      "tracking": "Hordofii Dhimma",
+      "reports": "Analaysisii fi Riportii",
+      "communication": "Meeshaalee Walqunnamaa"
     }
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Baga nagaan deebite",
-    "overview": "Akkasitti",
+    "welcome": "Baga nagaan deebi'ee",
+    "overview": "Akkasii hunda",
     "recentActivity": "Hojii Dhiyootti",
-    "quickActions": "Gochoota Dafan",
+    "quickActions": "Hojii Dhiyootti",
     "statistics": "Statistiksii"
   },
   "auth": {
@@ -39,26 +39,28 @@
     "email": "Imeelii",
     "signIn": "Seeni",
     "signOut": "Ba'i",
-    "forgotPassword": "Jecha Darbii kee Dagadhe?",
-    "rememberMe": "Na Yaadadhu"
+    "signUp": "Galmeessi",
+    "register": "Galmeessi",
+    "forgotPassword": "Jecha Darbii Keessan Dagattanii?",
+    "rememberMe": "Na Yaadachiisi"
   },
   "common": {
-    "loading": "Fe'aa jiru...",
+    "loading": "Loading...",
     "error": "Dogoggora",
     "success": "Milkaa'e",
     "cancel": "Dhiisi",
-    "save": "Olkaa'i",
-    "edit": "Jijjiirsi",
-    "delete": "Qori",
-    "view": "Argaa",
+    "save": "Kayyadi",
+    "edit": "Jijjiiri",
+    "delete": "Haquu",
+    "view": "Ilaali",
     "search": "Barbaadi",
     "filter": "Filter",
-    "sort": "Sadarkaa",
-    "refresh": "Haalaasuu",
+    "sort": "Sajisi",
+    "refresh": "Haala haa",
     "back": "Duubatti",
     "next": "Itti aansu",
     "previous": "Duraan",
-    "submit": "Ersi",
+    "submit": "Ergi",
     "close": "Cufi",
     "open": "Bani",
     "yes": "Eeyyee",
@@ -67,8 +69,8 @@
   },
   "languages": {
     "en": "English",
-    "am": "Amaariffaa",
-    "ha": "Afaan Hararii",
+    "am": "አማርኛ",
+    "ha": "ሐረሪ",
     "om": "Afaan Oromoo"
   }
 }

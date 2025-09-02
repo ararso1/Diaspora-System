@@ -74,14 +74,14 @@ export default function PublicNavbar() {
             className="rounded-md border px-4 py-2 font-semibold hover:opacity-90"
             style={{ borderColor: ACCENT, color: ACCENT }}
           >
-            {translate('auth.signIn', 'Sign In')}
+            {translate('auth.register', 'Register')}
           </Link>
           <Link
             href="/auth/sign-in"
             className="rounded-md px-4 py-2 font-semibold text-white hover:opacity-90"
             style={{ background: ACCENT }}
           >
-            Sign In
+            {translate('auth.signIn', 'Sign In')}
           </Link>
         </div>
 
@@ -116,7 +116,7 @@ export default function PublicNavbar() {
                   style={{ borderColor: ACCENT, color: ACCENT }}
                   onClick={() => setOpen(false)}
                 >
-                  Sign In
+                  {translate('auth.signIn', 'Sign In')}
               </Link>
               <Link
                 href="/auth/sign-up"
@@ -124,7 +124,7 @@ export default function PublicNavbar() {
                 style={{ background: ACCENT }}
                 onClick={() => setOpen(false)}
               >
-                Sign Up
+                {translate('auth.register', 'Register')}
               </Link>
             </div>
           </div>

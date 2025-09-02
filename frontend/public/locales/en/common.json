@@ -39,6 +39,8 @@
     "email": "Email",
     "signIn": "Sign In",
     "signOut": "Sign Out",
+    "signUp": "Sign Up",
+    "register": "Register",
     "forgotPassword": "Forgot Password?",
     "rememberMe": "Remember Me"
   },

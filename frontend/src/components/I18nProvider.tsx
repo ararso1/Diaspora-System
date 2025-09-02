@@ -13,7 +13,8 @@ export default function I18nProvider({ children }: I18nProviderProps) {
 
   useEffect(() => {
     setIsClient(true);
-    // Get language from localStorage or default to 'en'
+    
+    // Load saved language preference
     const savedLanguage = localStorage.getItem('i18nextLng') || 'en';
     if (savedLanguage !== i18n.language) {
       i18n.changeLanguage(savedLanguage);

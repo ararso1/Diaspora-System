@@ -8,18 +8,10 @@ import haCommon from '../../public/locales/ha/common.json';
 import omCommon from '../../public/locales/om/common.json';
 
 const resources = {
-  en: {
-    common: enCommon,
-  },
-  am: {
-    common: amCommon,
-  },
-  ha: {
-    common: haCommon,
-  },
-  om: {
-    common: omCommon,
-  },
+  en: { common: enCommon },
+  am: { common: amCommon },
+  ha: { common: haCommon },
+  om: { common: omCommon },
 };
 
 // Only initialize if not already initialized
@@ -31,17 +23,10 @@ if (!i18n.isInitialized) {
       lng: 'en', // default language
       fallbackLng: 'en',
       debug: process.env.NODE_ENV === 'development',
-      
-      interpolation: {
-        escapeValue: false, // React already escapes values
-      },
-      
+      interpolation: { escapeValue: false },
       defaultNS: 'common',
       ns: ['common'],
-      
-      react: {
-        useSuspense: false,
-      },
+      react: { useSuspense: false },
     });
 }
 
